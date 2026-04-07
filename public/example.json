@@ -1,0 +1,52 @@
+{
+    "version": 1,
+    "type": "database",
+    "meta": {
+        "name": "My Custom Grid"
+    },
+    "playerTeamId": "team-1",
+    "world": {
+        "teams": [
+            {
+                "id": "team-1",
+                "name": "Apex Velocity",
+                "country": "Italy",
+                "budget": 30000000,
+                "aero": 78,
+                "power": 76,
+                "reliability": 74,
+                "drivers": [
+                    "driver-1",
+                    "driver-2"
+                ],
+                "points": 0
+            }
+        ],
+        "drivers": [
+            {
+                "id": "driver-1",
+                "name": "Luca Moretti",
+                "age": 27,
+                "country": "Italy",
+                "teamId": "team-1",
+                "overall": 82,
+                "qualifying": 84,
+                "racecraft": 80,
+                "consistency": 79,
+                "wetSkill": 77,
+                "marketValue": 12000000
+            }
+        ],
+        "calendar": [
+            {
+                "id": "race-1",
+                "name": "Sahara Grand Prix",
+                "country": "Bahrain",
+                "flag": "🇧🇭",
+                "trackBias": "power",
+                "chaos": 0.2,
+                "weather": "dry"
+            }
+        ]
+    }
+}

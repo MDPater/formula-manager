@@ -1,4 +1,5 @@
 import { NavLink } from 'react-router-dom';
+import { useGameStore } from '../../store/gameStore';
 
 const links = [
     { to: '/', label: 'Dashboard', end: true },
@@ -6,16 +7,21 @@ const links = [
     { to: '/market', label: 'Market' },
     { to: '/factory', label: 'Factory' },
     { to: '/race', label: 'Race' },
+    { to: '/results', label: 'Results' },
     { to: '/standings', label: 'Standings' },
 ];
 
 export function SideNav() {
+    const teams = useGameStore((state) => state.teams);
+    const playerTeamId = useGameStore((state) => state.playerTeamId);
+    const playerTeam = teams.find((team) => team.id === playerTeamId) ?? teams[0];
+
     return (
         <aside className="flex h-screen flex-col border-r border-white/10 bg-zinc-950/90 px-4 py-5 backdrop-blur">
             <div className="mb-8 rounded-2xl border border-red-500/20 bg-gradient-to-br from-red-500/10 to-transparent p-4">
                 <div className="text-xs uppercase tracking-[0.35em] text-zinc-500">Garage</div>
-                <div className="mt-2 text-2xl font-bold tracking-tight text-white">Apex GP</div>
-                <div className="mt-1 text-sm text-zinc-400">F1 Team Manager</div>
+                <div className="mt-2 text-2xl font-bold tracking-tight text-white">{playerTeam.name}</div>
+                <div className="mt-1 text-sm text-zinc-400">Team Manager</div>
             </div>
 
             <nav className="space-y-2">

@@ -4,7 +4,7 @@ const links = [
     { to: '/', label: 'Home', end: true },
     { to: '/team', label: 'Team' },
     { to: '/race', label: 'Race' },
-    { to: '/factory', label: 'Factory' },
+    { to: '/results', label: 'Results' },
     { to: '/standings', label: 'Table' },
 ];
 

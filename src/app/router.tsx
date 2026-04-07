@@ -5,7 +5,9 @@ import { TeamPage } from '../features/team/TeamPage';
 import { MarketPage } from '../features/market/MarketPage';
 import { FactoryPage } from '../features/factory/FactoryPage';
 import { RaceWeekendPage } from '../features/race/RaceWeekendPage';
+import { ResultsPage } from '../features/results/ResultsPage';
 import { StandingsPage } from '../features/standings/StandingsPage';
+import { DriverDetailPage } from '../features/drivers/DriverDetailPage';
 
 export const router = createBrowserRouter([
     {
@@ -17,7 +19,9 @@ export const router = createBrowserRouter([
             { path: 'market', element: <MarketPage /> },
             { path: 'factory', element: <FactoryPage /> },
             { path: 'race', element: <RaceWeekendPage /> },
+            { path: 'results', element: <ResultsPage /> },
             { path: 'standings', element: <StandingsPage /> },
+            { path: 'drivers/:driverId', element: <DriverDetailPage /> },
         ],
     },
 ]);
