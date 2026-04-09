@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Card } from '../../components/ui/Card';
 import { SectionHeader } from '../../components/ui/SectionHeader';
+import { getActiveDrivers, getDriverTeamId } from '../../lib/roster';
 import { useGameStore } from '../../store/gameStore';
 
 function getStandingRowClass(position: number) {
@@ -20,17 +21,20 @@ function getStandingBadge(position: number) {
 export function StandingsPage() {
     const teams = useGameStore((state) => state.teams);
     const drivers = useGameStore((state) => state.drivers);
+    const teamRosters = useGameStore((state) => state.teamRosters);
     const history = useGameStore((state) => state.history);
 
     const sortedTeams = [...teams].sort((a, b) => b.points - a.points);
+    const activeDrivers = getActiveDrivers(drivers, teamRosters);
 
-    const driverPoints = drivers.map((driver) => {
+    const driverPoints = activeDrivers.map((driver) => {
         const points = history.reduce((total, race) => {
             const result = race.results.find((entry) => entry.driverId === driver.id);
             return total + (result?.points ?? 0);
         }, 0);
 
-        const team = teams.find((item) => item.id === driver.teamId);
+        const teamId = getDriverTeamId(teamRosters, driver.id);
+        const team = teams.find((item) => item.id === teamId);
 
         return {
             ...driver,

@@ -3,7 +3,6 @@ export type Driver = {
     name: string;
     age: number;
     country: string;
-    teamId: string;
     overall: number;
     qualifying: number;
     racecraft: number;
@@ -20,8 +19,29 @@ export type Team = {
     aero: number;
     power: number;
     reliability: number;
-    drivers: string[];
     points: number;
+};
+
+export type TeamRoster = Record<string, string[]>;
+
+export type Engineer = {
+    id: string;
+    name: string;
+    age: number;
+    country: string;
+    salary: number;
+    developmentSkill: number;
+    consistency: number;
+};
+
+export type PitCrewChief = {
+    id: string;
+    name: string;
+    age: number;
+    country: string;
+    salary: number;
+    reliabilitySkill: number;
+    consistencySkill: number;
 };
 
 export type Race = {
@@ -29,6 +49,7 @@ export type Race = {
     name: string;
     country: string;
     flag: string;
+    isIconic: boolean;
     trackBias: 'power' | 'aero' | 'balanced';
     chaos: number;
     weather: 'dry' | 'mixed' | 'wet';
@@ -44,6 +65,8 @@ export type ResultRow = {
 };
 
 export type RaceHistoryEntry = {
+    seasonNumber: number;
+    roundNumber: number;
     raceName: string;
     results: Array<{
         driverId: string;
@@ -52,6 +75,15 @@ export type RaceHistoryEntry = {
         points: number;
         dnf: boolean;
     }>;
+};
+
+export type DriverProgressionSummary = {
+    driverId: string;
+    oldOverall: number;
+    newOverall: number;
+    deltaOverall: number;
+    oldAge: number;
+    newAge: number;
 };
 
 export type SaveMeta = {
@@ -65,18 +97,42 @@ export type SaveMeta = {
     budget: number;
 };
 
+export type SeasonSummary = {
+    seasonNumber: number;
+    championDriverId: string | null;
+    championTeamId: string | null;
+    playerTeamPosition: number | null;
+    playerDriverResults: Array<{
+        driverId: string;
+        points: number;
+        wins: number;
+        podiums: number;
+    }>;
+    driverProgressions: DriverProgressionSummary[];
+};
+
 export type SaveFile = {
     version: 1;
     meta: SaveMeta;
     world: {
         teams: Team[];
         drivers: Driver[];
+        engineers: Engineer[];
+        pitCrewChiefs: PitCrewChief[];
+        providerCalendar: Race[];
         calendar: Race[];
     };
     game: {
+        teamRosters: TeamRoster;
         currentRound: number;
         playerTeamId: string;
+        playerEngineerId: string | null;
+        playerPitCrewChiefId: string | null;
+        seasonNumber: number;
+        seasonLength: number;
+        isSeasonComplete: boolean;
         history: RaceHistoryEntry[];
+        seasonSummaries: SeasonSummary[];
     };
 };
 

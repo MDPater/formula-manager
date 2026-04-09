@@ -1,25 +1,34 @@
-import type { ReactNode } from 'react';
-import { BottomNav } from './BottomNav';
+import { useState, type ReactNode } from 'react';
+import { useLocation } from 'react-router-dom';
 import { SideNav } from './SideNav';
 import { TopBar } from './TopBar';
 
 export function AppShell({ children }: { children: ReactNode }) {
+    const location = useLocation();
+    const isSetupRoute = location.pathname === '/career/setup';
+
+    const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+    function handleToggleNav() {
+        setMobileNavOpen((value) => !value);
+    }
+
+    function handleCloseMobileNav() {
+        setMobileNavOpen(false);
+    }
+
     return (
         <div className="min-h-screen bg-black text-zinc-100">
-            <div className="flex min-h-screen">
-                <div className="hidden md:block md:w-[250px] md:shrink-0">
-                    <SideNav />
-                </div>
+            {!isSetupRoute && (
+                <SideNav mobileOpen={mobileNavOpen} onCloseMobile={handleCloseMobileNav} />
+            )}
 
-                <div className="flex min-h-screen flex-1 flex-col">
-                    <TopBar />
-                    <main className="flex-1 p-4 pb-24 md:p-6 md:pb-6">
-                        <div className="mx-auto max-w-7xl">{children}</div>
-                    </main>
-                </div>
+            <div className={`min-h-screen ${isSetupRoute ? '' : 'md:pl-[272px]'}`}>
+                <TopBar showNavToggle={!isSetupRoute} onToggleNav={handleToggleNav} />
+                <main className="p-4 pb-8 md:p-6">
+                    <div className="mx-auto max-w-7xl">{children}</div>
+                </main>
             </div>
-
-            <BottomNav />
         </div>
     );
 }

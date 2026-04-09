@@ -1,13 +1,15 @@
 import { createBrowserRouter } from 'react-router-dom';
 import App from '../App';
+import { CareerSetupPage } from '../features/career/CareerSetupPage';
 import { DashboardPage } from '../features/dashboard/DashboardPage';
-import { TeamPage } from '../features/team/TeamPage';
-import { MarketPage } from '../features/market/MarketPage';
+import { DriverDetailPage } from '../features/drivers/DriverDetailPage';
 import { FactoryPage } from '../features/factory/FactoryPage';
+import { MarketPage } from '../features/market/MarketPage';
 import { RaceWeekendPage } from '../features/race/RaceWeekendPage';
 import { ResultsPage } from '../features/results/ResultsPage';
+import { SeasonOverviewPage } from '../features/season/SeasonOverviewPage';
 import { StandingsPage } from '../features/standings/StandingsPage';
-import { DriverDetailPage } from '../features/drivers/DriverDetailPage';
+import { TeamPage } from '../features/team/TeamPage';
 
 export const router = createBrowserRouter([
     {
@@ -15,6 +17,7 @@ export const router = createBrowserRouter([
         element: <App />,
         children: [
             { index: true, element: <DashboardPage /> },
+            { path: 'career/setup', element: <CareerSetupPage /> },
             { path: 'team', element: <TeamPage /> },
             { path: 'market', element: <MarketPage /> },
             { path: 'factory', element: <FactoryPage /> },
@@ -22,6 +25,7 @@ export const router = createBrowserRouter([
             { path: 'results', element: <ResultsPage /> },
             { path: 'standings', element: <StandingsPage /> },
             { path: 'drivers/:driverId', element: <DriverDetailPage /> },
+            { path: 'season-overview', element: <SeasonOverviewPage /> },
         ],
     },
 ]);
