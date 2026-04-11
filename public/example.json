@@ -2,23 +2,40 @@
     "version": 1,
     "type": "database",
     "meta": {
-        "name": "My Custom Grid"
+        "name": "Custom Database Template",
+        "description": "Edit teams, drivers, and optional calendar entries. Keep IDs unique."
     },
     "playerTeamId": "team-1",
     "world": {
         "teams": [
             {
                 "id": "team-1",
-                "name": "Apex Velocity",
+                "name": "Crimson Velocity",
                 "country": "Italy",
-                "budget": 30000000,
-                "aero": 78,
-                "power": 76,
-                "reliability": 74,
-                "drivers": [
-                    "driver-1",
-                    "driver-2"
-                ],
+                "budget": 62000000,
+                "aero": 88,
+                "power": 87,
+                "reliability": 84,
+                "points": 0
+            },
+            {
+                "id": "team-2",
+                "name": "Silver Apex",
+                "country": "United Kingdom",
+                "budget": 60000000,
+                "aero": 86,
+                "power": 85,
+                "reliability": 83,
+                "points": 0
+            },
+            {
+                "id": "team-3",
+                "name": "Nova Racing",
+                "country": "Germany",
+                "budget": 52000000,
+                "aero": 80,
+                "power": 79,
+                "reliability": 80,
                 "points": 0
             }
         ],
@@ -28,13 +45,72 @@
                 "name": "Luca Moretti",
                 "age": 27,
                 "country": "Italy",
-                "teamId": "team-1",
-                "overall": 82,
-                "qualifying": 84,
-                "racecraft": 80,
-                "consistency": 79,
-                "wetSkill": 77,
-                "marketValue": 12000000
+                "overall": 89,
+                "qualifying": 91,
+                "racecraft": 88,
+                "consistency": 87,
+                "wetSkill": 86,
+                "marketValue": 24000000
+            },
+            {
+                "id": "driver-2",
+                "name": "Elias Novak",
+                "age": 24,
+                "country": "Czech Republic",
+                "overall": 84,
+                "qualifying": 83,
+                "racecraft": 85,
+                "consistency": 84,
+                "wetSkill": 82,
+                "marketValue": 17000000
+            },
+            {
+                "id": "driver-3",
+                "name": "Noah Vale",
+                "age": 29,
+                "country": "United Kingdom",
+                "overall": 91,
+                "qualifying": 92,
+                "racecraft": 90,
+                "consistency": 89,
+                "wetSkill": 88,
+                "marketValue": 25000000
+            },
+            {
+                "id": "driver-4",
+                "name": "Kai Duran",
+                "age": 25,
+                "country": "Spain",
+                "overall": 86,
+                "qualifying": 85,
+                "racecraft": 87,
+                "consistency": 84,
+                "wetSkill": 83,
+                "marketValue": 18000000
+            },
+            {
+                "id": "driver-5",
+                "name": "Milo Hart",
+                "age": 22,
+                "country": "Brazil",
+                "overall": 74,
+                "qualifying": 73,
+                "racecraft": 75,
+                "consistency": 72,
+                "wetSkill": 71,
+                "marketValue": 6500000
+            },
+            {
+                "id": "driver-6",
+                "name": "Jonas Cross",
+                "age": 20,
+                "country": "Denmark",
+                "overall": 70,
+                "qualifying": 69,
+                "racecraft": 71,
+                "consistency": 70,
+                "wetSkill": 68,
+                "marketValue": 5600000
             }
         ],
         "calendar": [
@@ -43,9 +119,30 @@
                 "name": "Sahara Grand Prix",
                 "country": "Bahrain",
                 "flag": "🇧🇭",
+                "isIconic": true,
                 "trackBias": "power",
                 "chaos": 0.2,
                 "weather": "dry"
+            },
+            {
+                "id": "race-2",
+                "name": "Harbor Street Grand Prix",
+                "country": "Monaco",
+                "flag": "🇲🇨",
+                "isIconic": true,
+                "trackBias": "aero",
+                "chaos": 0.35,
+                "weather": "mixed"
+            },
+            {
+                "id": "race-3",
+                "name": "Silver Crown Grand Prix",
+                "country": "United Kingdom",
+                "flag": "🇬🇧",
+                "isIconic": true,
+                "trackBias": "balanced",
+                "chaos": 0.2,
+                "weather": "mixed"
             }
         ]
     }

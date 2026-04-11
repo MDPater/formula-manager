@@ -21,29 +21,75 @@ function getPodiumRowClass(position: number, dnf: boolean) {
 export function ResultsPage() {
     const history = useGameStore((state) => state.history);
     const calendar = useGameStore((state) => state.calendar);
+    const seasonNumber = useGameStore((state) => state.seasonNumber);
+
+    const [selectedYear, setSelectedYear] = useState<number>(seasonNumber);
     const [openRaceKey, setOpenRaceKey] = useState<string | null>(null);
 
-    const races = useMemo(() => [...history].reverse(), [history]);
+    const availableYears = useMemo(() => {
+        const years = Array.from(new Set(history.map((race) => race.seasonNumber))).sort(
+            (a, b) => b - a
+        );
+
+        if (!years.includes(seasonNumber)) {
+            years.unshift(seasonNumber);
+        }
+
+        return years;
+    }, [history, seasonNumber]);
+
+    const filteredHistory = useMemo(
+        () =>
+            [...history]
+                .filter((race) => race.seasonNumber === selectedYear)
+                .sort((a, b) => {
+                    if (a.seasonNumber !== b.seasonNumber) return b.seasonNumber - a.seasonNumber;
+                    return b.roundNumber - a.roundNumber;
+                }),
+        [history, selectedYear]
+    );
 
     return (
         <div className="space-y-6 md:space-y-8">
             <SectionHeader
                 eyebrow="Archive"
                 title="Race Results"
-                description="Browse all completed race weekends. Open a race card to inspect the full result table."
+                description="Browse all completed race weekends across every season. Open a race card to inspect the full classification."
             />
 
-            {history.length === 0 ? (
+            <Card title="Season Filter">
+                <div className="flex flex-wrap items-center gap-3">
+                    <label className="text-sm text-zinc-400" htmlFor="results-year">
+                        Select season
+                    </label>
+                    <select
+                        id="results-year"
+                        value={selectedYear}
+                        onChange={(e) => {
+                            setSelectedYear(Number(e.target.value));
+                            setOpenRaceKey(null);
+                        }}
+                        className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none"
+                    >
+                        {availableYears.map((year) => (
+                            <option key={year} value={year} className="bg-zinc-950">
+                                {year}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+            </Card>
+
+            {filteredHistory.length === 0 ? (
                 <Card title="No Results Yet">
                     <div className="text-sm text-zinc-400">
-                        Simulate a race weekend to start building your results archive.
+                        No completed races found for {selectedYear}.
                     </div>
                 </Card>
             ) : (
                 <div className="space-y-4">
-                    {races.map((race, reverseIndex) => {
-                        const roundNumber = history.length - reverseIndex;
-                        const raceKey = `${race.raceName}-${roundNumber}`;
+                    {filteredHistory.map((race) => {
+                        const raceKey = `${race.seasonNumber}-${race.roundNumber}-${race.raceName}`;
                         const isOpen = openRaceKey === raceKey;
 
                         const sortedResults = [...race.results].sort((a, b) => {
@@ -71,7 +117,7 @@ export function ResultsPage() {
                                         <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
                                             <div className="min-w-0">
                                                 <div className="text-[11px] uppercase tracking-[0.3em] text-zinc-500">
-                                                    Round {roundNumber}
+                                                    {race.seasonNumber} · Round {race.roundNumber}
                                                 </div>
                                                 <div className="mt-2 flex items-center gap-3">
                                                     <span className="text-2xl">{flag}</span>
@@ -97,10 +143,10 @@ export function ResultsPage() {
                                                     {podium.map((result) => (
                                                         <div
                                                             key={result.driverId}
-                                                            className={`
-                                flex items-center gap-2 rounded-2xl px-3 py-2 text-sm
-                                ${getPodiumRowClass(result.position, result.dnf)}
-                              `}
+                                                            className={`flex items-center gap-2 rounded-2xl px-3 py-2 text-sm ${getPodiumRowClass(
+                                                                result.position,
+                                                                result.dnf
+                                                            )}`}
                                                         >
                                                             <span>{getPodiumMedal(result.position)}</span>
                                                             <span className="font-medium text-white">{result.driverName}</span>

@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { Card } from '../../components/ui/Card';
 import { SectionHeader } from '../../components/ui/SectionHeader';
 import { useGameStore } from '../../store/gameStore';
@@ -14,12 +15,72 @@ export function RaceWeekendPage() {
     const runNextRace = useGameStore((state) => state.runNextRace);
     const history = useGameStore((state) => state.history);
     const calendar = useGameStore((state) => state.calendar);
+    const isSeasonComplete = useGameStore((state) => state.isSeasonComplete);
+    const seasonNumber = useGameStore((state) => state.seasonNumber);
 
     const nextRace = calendar[currentRound];
     const latest = history[history.length - 1];
     const latestRaceData = latest
         ? calendar.find((race) => race.name === latest.raceName)
         : null;
+
+    if (isSeasonComplete) {
+        return (
+            <div className="space-y-6 md:space-y-8">
+                <SectionHeader
+                    eyebrow="Season Complete"
+                    title={`Season ${seasonNumber} Finished`}
+                    description="The championship is complete. View the full season review to continue."
+                />
+
+                <Card title="Season End">
+                    <div className="space-y-4">
+                        <div className="text-sm text-zinc-400">
+                            All races for this season have been completed.
+                        </div>
+
+                        <Link
+                            to="/season-overview"
+                            className="inline-flex rounded-2xl bg-red-500 px-5 py-3 font-semibold text-white hover:opacity-90"
+                        >
+                            View Season Overview
+                        </Link>
+                    </div>
+                </Card>
+
+                {latest && (
+                    <Card
+                        title={`Last Results · ${latestRaceData ? `${latestRaceData.flag} ${latest.raceName}` : latest.raceName
+                            }`}
+                    >
+                        <div className="space-y-2">
+                            {latest.results.map((result) => {
+                                const medal = !result.dnf ? getPodiumMedal(result.position) : null;
+
+                                return (
+                                    <div
+                                        key={result.driverId}
+                                        className="flex items-center justify-between rounded-2xl bg-white/5 px-4 py-3"
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            {medal ? <span className="text-lg">{medal}</span> : null}
+                                            <span className="text-sm text-zinc-300 md:text-base">
+                                                {result.driverName}
+                                            </span>
+                                        </div>
+
+                                        <span className="text-sm font-medium text-white md:text-base">
+                                            {result.dnf ? 'DNF' : `P${result.position} · ${result.points} pts`}
+                                        </span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </Card>
+                )}
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6 md:space-y-8">
