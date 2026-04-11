@@ -61,6 +61,15 @@ export function StartScreen() {
     refreshSaves();
   }
 
+  function handleDownloadTemplate() {
+    const anchor = document.createElement('a');
+    anchor.href = '/example.json';
+    anchor.download = 'database-template.json';
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+  }
+
   return (
     <div className="min-h-screen bg-[#1e1f22] text-zinc-100">
       <div className="mx-auto flex min-h-screen max-w-6xl flex-col justify-center px-4 py-10 md:px-6">
@@ -70,11 +79,11 @@ export function StartScreen() {
               Career Hub
             </div>
             <h1 className="mt-3 text-4xl font-bold tracking-tight text-white md:text-5xl">
-              Apex GP Manager
+              Formula Manager
             </h1>
             <p className="mt-4 max-w-xl text-sm text-zinc-400 md:text-base">
-              Start a new career, continue a save, or import your own custom
-              team and driver database.
+              Start a new career, continue a save, import your own custom team and driver database,
+              or download a template to edit.
             </p>
 
             <div className="mt-8 grid gap-4 sm:grid-cols-3">
@@ -98,7 +107,7 @@ export function StartScreen() {
               </div>
             </div>
 
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+            <div className="mt-8 flex flex-col gap-3">
               <button
                 className="rounded-2xl border border-red-500/30 bg-red-500 px-5 py-3 font-semibold text-white transition hover:opacity-90"
                 onClick={() => navigate('/career/setup')}
@@ -106,12 +115,21 @@ export function StartScreen() {
                 Start New Career
               </button>
 
-              <button
-                className="rounded-2xl border border-white/10 bg-white/5 px-5 py-3 font-semibold text-zinc-200 transition hover:bg-white/10"
-                onClick={() => importInputRef.current?.click()}
-              >
-                Import Custom Database
-              </button>
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <button
+                  className="rounded-2xl border border-white/10 bg-white/5 px-5 py-3 font-semibold text-zinc-200 transition hover:bg-white/10"
+                  onClick={() => importInputRef.current?.click()}
+                >
+                  Import Custom Database
+                </button>
+
+                <button
+                  className="rounded-2xl border border-white/10 bg-white/5 px-5 py-3 font-semibold text-zinc-200 transition hover:bg-white/10"
+                  onClick={handleDownloadTemplate}
+                >
+                  Download JSON Database Template
+                </button>
+              </div>
             </div>
 
             <input

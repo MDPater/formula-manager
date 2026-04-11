@@ -5,7 +5,10 @@ import { engineers as defaultEngineers } from '../data/engineers';
 import { pitCrewChiefs as defaultPitCrewChiefs } from '../data/pitCrewChief';
 import { teams as defaultTeams } from '../data/teams';
 import { progressDriversForSeason } from '../lib/driverProgression';
-import { runOffseasonDriverChanges } from '../lib/offseason';
+import {
+    applyOffseasonDriverChanges,
+    previewOffseasonDriverChanges,
+} from '../lib/offseason';
 import { downloadJson, readBrowserSave, writeBrowserSave } from '../lib/persistence';
 import {
     buildFreshRostersFromSetup,
@@ -477,6 +480,11 @@ export const useGameStore = create<GameState>((set, get) => {
                         (entry) => entry.seasonNumber === state.seasonNumber
                     );
                     const progressionPreview = progressDriversForSeason(state.drivers, seasonHistory);
+                    const offseasonPreview = previewOffseasonDriverChanges(
+                        progressionPreview.drivers,
+                        state.teamRosters,
+                        seasonHistory
+                    );
                     const summary = buildSeasonSummary(nextStateBase);
 
                     nextSeasonSummaries = [
@@ -484,6 +492,8 @@ export const useGameStore = create<GameState>((set, get) => {
                         {
                             ...summary,
                             driverProgressions: progressionPreview.progressions,
+                            retirements: offseasonPreview.retirements,
+                            newDrivers: offseasonPreview.newDrivers,
                         },
                     ];
                 }
@@ -580,10 +590,11 @@ export const useGameStore = create<GameState>((set, get) => {
                     age: chief.age + 1,
                 }));
 
-                const offseasonResult = runOffseasonDriverChanges(
+                const offseasonApplied = applyOffseasonDriverChanges(
                     progressionResult.drivers,
                     state.teamRosters,
-                    seasonHistory
+                    latestSummary?.retirements ?? [],
+                    latestSummary?.newDrivers ?? []
                 );
 
                 const baseTeamsById = new Map(defaultTeams.map((team) => [team.id, team]));
@@ -605,8 +616,6 @@ export const useGameStore = create<GameState>((set, get) => {
                     updatedSummaries[updatedSummaries.length - 1] = {
                         ...latestSummary,
                         driverProgressions: progressionResult.progressions,
-                        retirements: offseasonResult.retirements,
-                        newDrivers: offseasonResult.newDrivers,
                     };
                 }
 
@@ -619,11 +628,11 @@ export const useGameStore = create<GameState>((set, get) => {
 
                 const nextState: GameState = {
                     ...state,
-                    drivers: offseasonResult.drivers,
+                    drivers: offseasonApplied.drivers,
                     engineers: progressedEngineers,
                     pitCrewChiefs: progressedPitCrewChiefs,
                     teams: resetTeams,
-                    teamRosters: offseasonResult.teamRosters,
+                    teamRosters: offseasonApplied.teamRosters,
                     calendar: newCalendar,
                     currentRound: 0,
                     history: state.history,

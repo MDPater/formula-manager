@@ -72,7 +72,7 @@ export function SeasonOverviewPage() {
             <SectionHeader
                 eyebrow="Season Review"
                 title={`${latest.seasonNumber} Championship Complete`}
-                description="Review the final standings, key outcomes, and offseason development before beginning the next year."
+                description="Review the final standings, driver development, retirements, and incoming talent before starting the next season."
             />
 
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -232,6 +232,62 @@ export function SeasonOverviewPage() {
                                     </div>
                                 );
                             })}
+                        </div>
+                    )}
+                </Card>
+            </div>
+
+            <div className="grid gap-4 xl:grid-cols-2">
+                <Card title="Retirements">
+                    {latest.retirements.length === 0 ? (
+                        <div className="text-sm text-zinc-400">No retirements this offseason.</div>
+                    ) : (
+                        <div className="space-y-2">
+                            {latest.retirements.map((entry) => (
+                                <div
+                                    key={entry.driverId}
+                                    className="flex items-center justify-between rounded-2xl bg-white/5 px-4 py-3"
+                                >
+                                    <div>
+                                        <div className="text-white">
+                                            {getCountryFlag(entry.country)} {entry.name}
+                                        </div>
+                                        <div className="text-xs text-zinc-400">
+                                            Age {entry.age} · OVR {entry.overall}
+                                        </div>
+                                    </div>
+
+                                    <div className="text-right text-xs text-zinc-400">{entry.reason}</div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </Card>
+
+                <Card title="New Drivers Entering The Grid">
+                    {latest.newDrivers.length === 0 ? (
+                        <div className="text-sm text-zinc-400">No new drivers generated.</div>
+                    ) : (
+                        <div className="space-y-2">
+                            {latest.newDrivers.map((entry) => (
+                                <div
+                                    key={entry.driverId}
+                                    className="flex items-center justify-between rounded-2xl bg-white/5 px-4 py-3"
+                                >
+                                    <div>
+                                        <div className="text-white">
+                                            {getCountryFlag(entry.country)} {entry.name}
+                                        </div>
+                                        <div className="text-xs text-zinc-400">
+                                            Age {entry.age} · OVR {entry.overall}
+                                        </div>
+                                    </div>
+
+                                    <div className="text-right text-xs uppercase tracking-[0.2em] text-zinc-400">
+                                        {entry.archetype}
+                                    </div>
+                                </div>
+                            ))}
                         </div>
                     )}
                 </Card>

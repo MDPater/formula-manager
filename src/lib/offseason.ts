@@ -200,13 +200,11 @@ function createGeneratedDriver(existingDrivers: Driver[]): {
     };
 }
 
-export function runOffseasonDriverChanges(
+export function previewOffseasonDriverChanges(
     drivers: Driver[],
     teamRosters: TeamRoster,
     seasonHistory: RaceHistoryEntry[]
 ): {
-    drivers: Driver[];
-    teamRosters: TeamRoster;
     retirements: RetirementRecord[];
     newDrivers: NewDriverRecord[];
 } {
@@ -214,16 +212,14 @@ export function runOffseasonDriverChanges(
     const activeDrivers = drivers.filter((driver) => activeIds.has(driver.id));
 
     const retirements: RetirementRecord[] = [];
-    let remainingDrivers = [...drivers];
-    const updatedRosters: TeamRoster = Object.fromEntries(
-        Object.entries(teamRosters).map(([teamId, ids]) => [teamId, [...ids]])
-    );
+    const newDrivers: NewDriverRecord[] = [];
+    let tempDrivers = [...drivers];
 
     for (const driver of activeDrivers) {
         const decision = shouldRetire(driver, seasonHistory);
         if (!decision.retire) continue;
 
-        const teamId = getDriverTeamId(updatedRosters, driver.id);
+        const teamId = getDriverTeamId(teamRosters, driver.id);
 
         retirements.push({
             driverId: driver.id,
@@ -235,36 +231,73 @@ export function runOffseasonDriverChanges(
             teamId,
         });
 
-        remainingDrivers = remainingDrivers.filter((item) => item.id !== driver.id);
+        tempDrivers = tempDrivers.filter((item) => item.id !== driver.id);
 
-        if (teamId) {
-            updatedRosters[teamId] = updatedRosters[teamId].filter((id) => id !== driver.id);
-        }
-    }
-
-    const newDrivers: NewDriverRecord[] = [];
-
-    for (const retirement of retirements) {
-        const generated = createGeneratedDriver(remainingDrivers);
-        remainingDrivers = [...remainingDrivers, generated.driver];
-
-        if (retirement.teamId) {
-            updatedRosters[retirement.teamId] = [
-                ...(updatedRosters[retirement.teamId] ?? []),
-                generated.driver.id,
-            ].slice(0, 2);
-        }
+        const generated = createGeneratedDriver(tempDrivers);
+        tempDrivers = [...tempDrivers, generated.driver];
 
         newDrivers.push({
             ...generated.record,
-            teamId: retirement.teamId,
+            teamId,
         });
     }
 
     return {
-        drivers: remainingDrivers,
-        teamRosters: updatedRosters,
         retirements,
         newDrivers,
+    };
+}
+
+export function applyOffseasonDriverChanges(
+    drivers: Driver[],
+    teamRosters: TeamRoster,
+    retirements: RetirementRecord[],
+    newDrivers: NewDriverRecord[]
+): {
+    drivers: Driver[];
+    teamRosters: TeamRoster;
+} {
+    let updatedDrivers = [...drivers];
+    const updatedRosters: TeamRoster = Object.fromEntries(
+        Object.entries(teamRosters).map(([teamId, ids]) => [teamId, [...ids]])
+    );
+
+    for (const retirement of retirements) {
+        updatedDrivers = updatedDrivers.filter((driver) => driver.id !== retirement.driverId);
+
+        if (retirement.teamId) {
+            updatedRosters[retirement.teamId] = (updatedRosters[retirement.teamId] ?? []).filter(
+                (id) => id !== retirement.driverId
+            );
+        }
+    }
+
+    for (const entry of newDrivers) {
+        const generatedDriver: Driver = {
+            id: entry.driverId,
+            name: entry.name,
+            country: entry.country,
+            age: entry.age,
+            overall: entry.overall,
+            qualifying: Math.max(60, Math.min(99, entry.overall + Math.floor(Math.random() * 5) - 2)),
+            racecraft: Math.max(60, Math.min(99, entry.overall + Math.floor(Math.random() * 5) - 2)),
+            consistency: Math.max(60, Math.min(99, entry.overall + Math.floor(Math.random() * 5) - 2)),
+            wetSkill: Math.max(60, Math.min(99, entry.overall + Math.floor(Math.random() * 5) - 2)),
+            marketValue: Math.max(1500000, entry.overall * 250000),
+        };
+
+        updatedDrivers.push(generatedDriver);
+
+        if (entry.teamId) {
+            updatedRosters[entry.teamId] = [...(updatedRosters[entry.teamId] ?? []), entry.driverId].slice(
+                0,
+                2
+            );
+        }
+    }
+
+    return {
+        drivers: updatedDrivers,
+        teamRosters: updatedRosters,
     };
 }
