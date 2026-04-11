@@ -45,8 +45,8 @@ export function DriverDetailPage() {
         );
     }
 
-    const teamId = getDriverTeamId(teamRosters, driver.id);
-    const team = teams.find((item) => item.id === teamId);
+    const currentTeamId = getDriverTeamId(teamRosters, driver.id);
+    const currentTeam = teams.find((item) => item.id === currentTeamId);
 
     const availableYears = useMemo(() => {
         const years = Array.from(new Set(history.map((race) => race.seasonNumber))).sort(
@@ -64,34 +64,39 @@ export function DriverDetailPage() {
         selectedYear === 'all' ? true : race.seasonNumber === selectedYear
     );
 
-    const raceEntries = filteredHistory.map((race) => {
-        const result = race.results.find((entry) => entry.driverId === driver.id);
-        const raceData = calendar.find((item) => item.name === race.raceName);
+    // Only keep races the driver actually participated in
+    const raceEntries = filteredHistory
+        .map((race) => {
+            const result = race.results.find((entry) => entry.driverId === driver.id);
+            if (!result) return null;
 
-        return {
-            seasonNumber: race.seasonNumber,
-            roundNumber: race.roundNumber,
-            raceName: race.raceName,
-            flag: raceData?.flag ?? '🏁',
-            country: raceData?.country ?? 'Unknown',
-            result,
-        };
-    });
+            const raceData = calendar.find((item) => item.name === race.raceName);
 
-    const classifiedResults = raceEntries
-        .map((entry) => entry.result)
-        .filter((result): result is NonNullable<typeof result> => Boolean(result));
+            return {
+                seasonNumber: race.seasonNumber,
+                roundNumber: race.roundNumber,
+                raceName: race.raceName,
+                flag: raceData?.flag ?? '🏁',
+                country: raceData?.country ?? 'Unknown',
+                result,
+            };
+        })
+        .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry));
+
+    const classifiedResults = raceEntries.map((entry) => entry.result);
 
     const totalPoints = classifiedResults.reduce((sum, result) => sum + result.points, 0);
     const wins = classifiedResults.filter((result) => !result.dnf && result.position === 1).length;
     const podiums = classifiedResults.filter((result) => !result.dnf && result.position <= 3).length;
     const topTens = classifiedResults.filter((result) => !result.dnf && result.position <= 10).length;
     const dnfs = classifiedResults.filter((result) => result.dnf).length;
-    const racesEntered = classifiedResults.length;
+
     const championships = seasonSummaries.filter((summary) => {
         if (selectedYear !== 'all' && summary.seasonNumber !== selectedYear) return false;
         return summary.championDriverId === driver.id;
     }).length;
+
+    const seasonsParticipated = new Set(raceEntries.map((entry) => entry.seasonNumber)).size;
 
     const bestFinishResult = classifiedResults
         .filter((result) => !result.dnf)
@@ -105,6 +110,56 @@ export function DriverDetailPage() {
                 averageFinishSource.length
             ).toFixed(1)
             : '—';
+
+    const teamStats = Array.from(
+        raceEntries.reduce((map, entry) => {
+            const key = entry.result.teamId ?? 'unknown-team';
+
+            if (!map.has(key)) {
+                map.set(key, {
+                    teamId: entry.result.teamId,
+                    teamName: entry.result.teamName ?? 'Unknown Team',
+                    teamCountry: entry.result.teamCountry ?? '',
+                    races: 0,
+                    points: 0,
+                    wins: 0,
+                    podiums: 0,
+                    dnfs: 0,
+                    seasons: new Set<number>(),
+                });
+            }
+
+            const stat = map.get(key)!;
+            stat.races += 1;
+            stat.points += entry.result.points;
+            stat.seasons.add(entry.seasonNumber);
+
+            if (entry.result.dnf) {
+                stat.dnfs += 1;
+            } else {
+                if (entry.result.position === 1) stat.wins += 1;
+                if (entry.result.position <= 3) stat.podiums += 1;
+            }
+
+            return map;
+        }, new Map<string, {
+            teamId: string | null;
+            teamName: string;
+            teamCountry: string;
+            races: number;
+            points: number;
+            wins: number;
+            podiums: number;
+            dnfs: number;
+            seasons: Set<number>;
+        }>())
+            .values()
+    )
+        .map((entry) => ({
+            ...entry,
+            seasonCount: entry.seasons.size,
+        }))
+        .sort((a, b) => b.points - a.points);
 
     return (
         <div className="space-y-6 md:space-y-8">
@@ -126,7 +181,9 @@ export function DriverDetailPage() {
             <SectionHeader
                 eyebrow="Driver Profile"
                 title={`${getCountryFlag(driver.country)} ${driver.name}`}
-                description={`${driver.country} · ${driver.age} years old${team ? ` · ${getCountryFlag(team.country)} ${team.name}` : ' · Free Agent'
+                description={`${driver.country} · ${driver.age} years old${currentTeam
+                    ? ` · ${getCountryFlag(currentTeam.country)} ${currentTeam.name}`
+                    : ' · Free Agent'
                     }`}
             />
 
@@ -159,6 +216,9 @@ export function DriverDetailPage() {
                 <Card title="Championships">
                     <div className="text-3xl font-bold text-white">{championships}</div>
                 </Card>
+                <Card title="Seasons">
+                    <div className="text-3xl font-bold text-white">{seasonsParticipated}</div>
+                </Card>
                 <Card title="Points">
                     <div className="text-3xl font-bold text-white">{totalPoints}</div>
                 </Card>
@@ -173,9 +233,6 @@ export function DriverDetailPage() {
                 </Card>
                 <Card title="DNFs">
                     <div className="text-3xl font-bold text-white">{dnfs}</div>
-                </Card>
-                <Card title="Races">
-                    <div className="text-3xl font-bold text-white">{racesEntered}</div>
                 </Card>
                 <Card title="Best Finish">
                     <div className="text-3xl font-bold text-white">
@@ -200,9 +257,13 @@ export function DriverDetailPage() {
                         <div className="rounded-2xl bg-white/5 p-4">
                             <div className="text-sm text-zinc-400">Current Team</div>
                             <div className="mt-1 text-lg font-semibold text-white">
-                                {team ? `${getCountryFlag(team.country)} ${team.name}` : 'Free Agent'}
+                                {currentTeam
+                                    ? `${getCountryFlag(currentTeam.country)} ${currentTeam.name}`
+                                    : 'Free Agent'}
                             </div>
-                            {team ? <div className="text-sm text-zinc-400">{team.country}</div> : null}
+                            {currentTeam ? (
+                                <div className="text-sm text-zinc-400">{currentTeam.country}</div>
+                            ) : null}
                         </div>
                         <div className="rounded-2xl bg-white/5 p-4">
                             <div className="text-sm text-zinc-400">Market Value</div>
@@ -239,13 +300,53 @@ export function DriverDetailPage() {
 
                         <div className="flex flex-wrap gap-2 pt-2">
                             <Pill>{championships} Titles</Pill>
+                            <Pill>{seasonsParticipated} Seasons</Pill>
                             <Pill>{wins} Wins</Pill>
                             <Pill>{podiums} Podiums</Pill>
-                            <Pill>{dnfs} DNFs</Pill>
                         </div>
                     </div>
                 </Card>
             </div>
+
+            <Card title="Team History">
+                {teamStats.length === 0 ? (
+                    <div className="text-sm text-zinc-400">No team history available yet.</div>
+                ) : (
+                    <div className="space-y-3">
+                        <div className="grid grid-cols-[1.3fr_70px_80px_80px_80px_80px] px-2 text-xs uppercase tracking-[0.25em] text-zinc-500">
+                            <span>Team</span>
+                            <span className="text-right">Seasons</span>
+                            <span className="text-right">Races</span>
+                            <span className="text-right">Pts</span>
+                            <span className="text-right">Wins</span>
+                            <span className="text-right">Pods</span>
+                        </div>
+
+                        {teamStats.map((teamStat) => (
+                            <div
+                                key={`${teamStat.teamId ?? 'unknown'}-${teamStat.teamName}`}
+                                className="grid grid-cols-[1.3fr_70px_80px_80px_80px_80px] items-center rounded-2xl bg-white/5 px-4 py-3"
+                            >
+                                <div>
+                                    <div className="text-white">
+                                        {teamStat.teamCountry
+                                            ? `${getCountryFlag(teamStat.teamCountry)} ${teamStat.teamName}`
+                                            : teamStat.teamName}
+                                    </div>
+                                    <div className="text-xs text-zinc-400">
+                                        {teamStat.teamCountry || 'Unknown country'}
+                                    </div>
+                                </div>
+                                <div className="text-right text-white">{teamStat.seasonCount}</div>
+                                <div className="text-right text-white">{teamStat.races}</div>
+                                <div className="text-right text-white">{teamStat.points}</div>
+                                <div className="text-right text-white">{teamStat.wins}</div>
+                                <div className="text-right text-white">{teamStat.podiums}</div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </Card>
 
             <Card title="Race-by-Race Results">
                 {raceEntries.length === 0 ? (
@@ -259,12 +360,12 @@ export function DriverDetailPage() {
                             })
                             .map((entry, index) => {
                                 const result = entry.result;
-                                const medal = result && !result.dnf ? getPodiumMedal(result.position) : null;
+                                const medal = !result.dnf ? getPodiumMedal(result.position) : null;
 
                                 return (
                                     <div
                                         key={`${entry.seasonNumber}-${entry.roundNumber}-${entry.raceName}-${index}`}
-                                        className="grid grid-cols-[1fr_90px_90px] items-center rounded-2xl bg-white/5 px-4 py-3"
+                                        className="grid grid-cols-[1fr_140px_90px_90px] items-center rounded-2xl bg-white/5 px-4 py-3"
                                     >
                                         <div className="min-w-0">
                                             <div className="flex items-center gap-2">
@@ -278,23 +379,25 @@ export function DriverDetailPage() {
                                             </div>
                                         </div>
 
+                                        <div className="text-sm text-zinc-300">
+                                            {result.teamName
+                                                ? `${result.teamCountry ? getCountryFlag(result.teamCountry) : ''} ${result.teamName}`
+                                                : 'Unknown Team'}
+                                        </div>
+
                                         <div className="text-center text-sm text-white">
-                                            {result ? (
-                                                result.dnf ? (
-                                                    'DNF'
-                                                ) : (
-                                                    <span className="inline-flex items-center gap-2">
-                                                        {medal ? <span>{medal}</span> : null}
-                                                        <span>P{result.position}</span>
-                                                    </span>
-                                                )
+                                            {result.dnf ? (
+                                                'DNF'
                                             ) : (
-                                                '—'
+                                                <span className="inline-flex items-center gap-2">
+                                                    {medal ? <span>{medal}</span> : null}
+                                                    <span>P{result.position}</span>
+                                                </span>
                                             )}
                                         </div>
 
                                         <div className="text-right text-sm font-semibold text-white">
-                                            {result ? result.points : 0}
+                                            {result.points}
                                         </div>
                                     </div>
                                 );

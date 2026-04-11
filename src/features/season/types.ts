@@ -71,6 +71,9 @@ export type RaceHistoryEntry = {
     results: Array<{
         driverId: string;
         driverName: string;
+        teamId: string | null;
+        teamName: string | null;
+        teamCountry: string | null;
         position: number;
         points: number;
         dnf: boolean;

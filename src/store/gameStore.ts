@@ -453,14 +453,22 @@ export const useGameStore = create<GameState>((set, get) => {
                         seasonNumber: state.seasonNumber,
                         roundNumber: state.currentRound + 1,
                         raceName: race.name,
-                        results: results.map((r) => ({
-                            driverId: r.driverId,
-                            driverName: r.driverName,
-                            position: r.position,
-                            points: r.points,
-                            dnf: r.dnf,
-                        })),
-                    },
+                        results: results.map((r) => {
+                            const teamId = getDriverTeamId(state.teamRosters, r.driverId);
+                            const team = state.teams.find((item) => item.id === teamId);
+
+                            return {
+                                driverId: r.driverId,
+                                driverName: r.driverName,
+                                teamId: teamId ?? null,
+                                teamName: team?.name ?? null,
+                                teamCountry: team?.country ?? null,
+                                position: r.position,
+                                points: r.points,
+                                dnf: r.dnf,
+                            };
+                        }),
+                    }
                 ];
 
                 const seasonComplete = nextCurrentRound >= state.calendar.length;
