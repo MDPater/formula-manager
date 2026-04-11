@@ -86,11 +86,32 @@ export type DriverProgressionSummary = {
     newAge: number;
 };
 
+export type RetirementRecord = {
+    driverId: string;
+    name: string;
+    country: string;
+    age: number;
+    overall: number;
+    reason: string;
+    teamId: string | null;
+};
+
+export type NewDriverRecord = {
+    driverId: string;
+    name: string;
+    country: string;
+    age: number;
+    overall: number;
+    archetype: 'wonderkid' | 'experienced' | 'veteran';
+    teamId: string | null;
+};
+
 export type SaveMeta = {
     id: string;
     saveName: string;
     createdAt: string;
     updatedAt: string;
+    seasonNumber: number;
     currentRound: number;
     teamName: string;
     teamPoints: number;
@@ -109,6 +130,8 @@ export type SeasonSummary = {
         podiums: number;
     }>;
     driverProgressions: DriverProgressionSummary[];
+    retirements: RetirementRecord[];
+    newDrivers: NewDriverRecord[];
 };
 
 export type SaveFile = {

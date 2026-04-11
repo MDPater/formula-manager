@@ -62,7 +62,7 @@ export function StartScreen() {
   }
 
   return (
-    <div className="min-h-screen bg-black text-zinc-100">
+    <div className="min-h-screen bg-[#1e1f22] text-zinc-100">
       <div className="mx-auto flex min-h-screen max-w-6xl flex-col justify-center px-4 py-10 md:px-6">
         <div className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
           <section className="rounded-3xl border border-white/10 bg-gradient-to-b from-red-500/10 to-transparent p-6 shadow-[0_20px_80px_rgba(0,0,0,0.35)] md:p-8">
@@ -70,7 +70,7 @@ export function StartScreen() {
               Career Hub
             </div>
             <h1 className="mt-3 text-4xl font-bold tracking-tight text-white md:text-5xl">
-              Fomula Manager
+              Apex GP Manager
             </h1>
             <p className="mt-4 max-w-xl text-sm text-zinc-400 md:text-base">
               Start a new career, continue a save, or import your own custom
@@ -82,9 +82,7 @@ export function StartScreen() {
                 <div className="text-[11px] uppercase tracking-[0.3em] text-zinc-500">
                   Saves
                 </div>
-                <div className="mt-2 text-3xl font-bold text-white">
-                  {saves.length}
-                </div>
+                <div className="mt-2 text-3xl font-bold text-white">{saves.length}</div>
               </div>
               <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
                 <div className="text-[11px] uppercase tracking-[0.3em] text-zinc-500">
@@ -136,9 +134,7 @@ export function StartScreen() {
               <div className="text-[11px] uppercase tracking-[0.3em] text-zinc-500">
                 Local Saves
               </div>
-              <h2 className="mt-2 text-2xl font-bold text-white">
-                Continue Career
-              </h2>
+              <h2 className="mt-2 text-2xl font-bold text-white">Continue Career</h2>
             </div>
 
             {saves.length === 0 ? (
@@ -157,9 +153,7 @@ export function StartScreen() {
                         className="flex-1 text-left"
                         onClick={() => loadCareer(save.id)}
                       >
-                        <div className="text-lg font-semibold text-white">
-                          {save.saveName}
-                        </div>
+                        <div className="text-lg font-semibold text-white">{save.saveName}</div>
                         <div className="mt-1 text-sm text-zinc-400">
                           Last played: {formatDate(save.updatedAt)}
                         </div>
@@ -167,10 +161,10 @@ export function StartScreen() {
                         <div className="mt-4 grid gap-3 sm:grid-cols-4">
                           <div className="rounded-xl bg-black/30 px-3 py-2">
                             <div className="text-[10px] uppercase tracking-[0.25em] text-zinc-500">
-                              Round
+                              Season
                             </div>
                             <div className="mt-1 text-sm font-semibold text-white">
-                              {save.currentRound + 1}
+                              {save.seasonNumber}
                             </div>
                           </div>
                           <div className="rounded-xl bg-black/30 px-3 py-2">

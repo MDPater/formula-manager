@@ -1,0 +1,37 @@
+const countryFlagMap: Record<string, string> = {
+    Argentina: '🇦🇷',
+    Australia: '🇦🇺',
+    Austria: '🇦🇹',
+    Bahrain: '🇧🇭',
+    Brazil: '🇧🇷',
+    Bulgaria: '🇧🇬',
+    Canada: '🇨🇦',
+    'Czech Republic': '🇨🇿',
+    Denmark: '🇩🇰',
+    Finland: '🇫🇮',
+    France: '🇫🇷',
+    Germany: '🇩🇪',
+    Hungary: '🇭🇺',
+    Ireland: '🇮🇪',
+    Italy: '🇮🇹',
+    Japan: '🇯🇵',
+    Mexico: '🇲🇽',
+    Monaco: '🇲🇨',
+    Netherlands: '🇳🇱',
+    'New Zealand': '🇳🇿',
+    Norway: '🇳🇴',
+    Poland: '🇵🇱',
+    Portugal: '🇵🇹',
+    Romania: '🇷🇴',
+    'Saudi Arabia': '🇸🇦',
+    'South Africa': '🇿🇦',
+    Spain: '🇪🇸',
+    Sweden: '🇸🇪',
+    Switzerland: '🇨🇭',
+    'United Kingdom': '🇬🇧',
+    'United States': '🇺🇸',
+};
+
+export function getCountryFlag(country: string) {
+    return countryFlagMap[country] ?? '🏳️';
+}

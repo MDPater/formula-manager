@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { Card } from '../../components/ui/Card';
 import { Pill } from '../../components/ui/Pill';
 import { SectionHeader } from '../../components/ui/SectionHeader';
+import { getCountryFlag } from '../../lib/countryFlags';
 import { getDriverTeamId } from '../../lib/roster';
 import { useGameStore } from '../../store/gameStore';
 
@@ -20,10 +21,10 @@ export function DriverDetailPage() {
     const teamRosters = useGameStore((state) => state.teamRosters);
     const history = useGameStore((state) => state.history);
     const calendar = useGameStore((state) => state.calendar);
+    const seasonSummaries = useGameStore((state) => state.seasonSummaries);
     const currentSeason = useGameStore((state) => state.seasonNumber);
 
     const driver = drivers.find((item) => item.id === driverId);
-
     const [selectedYear, setSelectedYear] = useState<number | 'all'>('all');
 
     if (!driver) {
@@ -59,32 +60,38 @@ export function DriverDetailPage() {
         return years;
     }, [history, currentSeason]);
 
-    const allRaceEntries = history
-        .filter((race) =>
-            selectedYear === 'all' ? true : race.seasonNumber === selectedYear
-        )
-        .map((race) => {
-            const result = race.results.find((entry) => entry.driverId === driver.id);
-            const raceData = calendar.find((item) => item.name === race.raceName);
+    const filteredHistory = history.filter((race) =>
+        selectedYear === 'all' ? true : race.seasonNumber === selectedYear
+    );
 
-            return {
-                seasonNumber: race.seasonNumber,
-                roundNumber: race.roundNumber,
-                raceName: race.raceName,
-                flag: raceData?.flag ?? '🏁',
-                country: raceData?.country ?? 'Unknown',
-                result,
-            };
-        });
+    const raceEntries = filteredHistory.map((race) => {
+        const result = race.results.find((entry) => entry.driverId === driver.id);
+        const raceData = calendar.find((item) => item.name === race.raceName);
 
-    const classifiedResults = allRaceEntries
+        return {
+            seasonNumber: race.seasonNumber,
+            roundNumber: race.roundNumber,
+            raceName: race.raceName,
+            flag: raceData?.flag ?? '🏁',
+            country: raceData?.country ?? 'Unknown',
+            result,
+        };
+    });
+
+    const classifiedResults = raceEntries
         .map((entry) => entry.result)
         .filter((result): result is NonNullable<typeof result> => Boolean(result));
 
     const totalPoints = classifiedResults.reduce((sum, result) => sum + result.points, 0);
     const wins = classifiedResults.filter((result) => !result.dnf && result.position === 1).length;
     const podiums = classifiedResults.filter((result) => !result.dnf && result.position <= 3).length;
+    const topTens = classifiedResults.filter((result) => !result.dnf && result.position <= 10).length;
     const dnfs = classifiedResults.filter((result) => result.dnf).length;
+    const racesEntered = classifiedResults.length;
+    const championships = seasonSummaries.filter((summary) => {
+        if (selectedYear !== 'all' && summary.seasonNumber !== selectedYear) return false;
+        return summary.championDriverId === driver.id;
+    }).length;
 
     const bestFinishResult = classifiedResults
         .filter((result) => !result.dnf)
@@ -118,8 +125,9 @@ export function DriverDetailPage() {
 
             <SectionHeader
                 eyebrow="Driver Profile"
-                title={driver.name}
-                description={`${driver.country} · ${driver.age} years old${team ? ` · ${team.name}` : ' · Free Agent'}`}
+                title={`${getCountryFlag(driver.country)} ${driver.name}`}
+                description={`${driver.country} · ${driver.age} years old${team ? ` · ${getCountryFlag(team.country)} ${team.name}` : ' · Free Agent'
+                    }`}
             />
 
             <Card title="Season Filter">
@@ -147,12 +155,33 @@ export function DriverDetailPage() {
                 </div>
             </Card>
 
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-                <Card title="Points"><div className="text-3xl font-bold text-white">{totalPoints}</div></Card>
-                <Card title="Wins"><div className="text-3xl font-bold text-white">{wins}</div></Card>
-                <Card title="Podiums"><div className="text-3xl font-bold text-white">{podiums}</div></Card>
-                <Card title="Best Finish"><div className="text-3xl font-bold text-white">{bestFinishResult ? `P${bestFinishResult.position}` : '—'}</div></Card>
-                <Card title="Average Finish"><div className="text-3xl font-bold text-white">{averageFinish}</div></Card>
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <Card title="Championships">
+                    <div className="text-3xl font-bold text-white">{championships}</div>
+                </Card>
+                <Card title="Points">
+                    <div className="text-3xl font-bold text-white">{totalPoints}</div>
+                </Card>
+                <Card title="Wins">
+                    <div className="text-3xl font-bold text-white">{wins}</div>
+                </Card>
+                <Card title="Podiums">
+                    <div className="text-3xl font-bold text-white">{podiums}</div>
+                </Card>
+                <Card title="Top 10s">
+                    <div className="text-3xl font-bold text-white">{topTens}</div>
+                </Card>
+                <Card title="DNFs">
+                    <div className="text-3xl font-bold text-white">{dnfs}</div>
+                </Card>
+                <Card title="Races">
+                    <div className="text-3xl font-bold text-white">{racesEntered}</div>
+                </Card>
+                <Card title="Best Finish">
+                    <div className="text-3xl font-bold text-white">
+                        {bestFinishResult ? `P${bestFinishResult.position}` : '—'}
+                    </div>
+                </Card>
             </div>
 
             <div className="grid gap-4 xl:grid-cols-[0.8fr_1.2fr]">
@@ -160,7 +189,9 @@ export function DriverDetailPage() {
                     <div className="space-y-3">
                         <div className="rounded-2xl bg-white/5 p-4">
                             <div className="text-sm text-zinc-400">Country</div>
-                            <div className="mt-1 text-lg font-semibold text-white">{driver.country}</div>
+                            <div className="mt-1 text-lg font-semibold text-white">
+                                {getCountryFlag(driver.country)} {driver.country}
+                            </div>
                         </div>
                         <div className="rounded-2xl bg-white/5 p-4">
                             <div className="text-sm text-zinc-400">Age</div>
@@ -168,12 +199,20 @@ export function DriverDetailPage() {
                         </div>
                         <div className="rounded-2xl bg-white/5 p-4">
                             <div className="text-sm text-zinc-400">Current Team</div>
-                            <div className="mt-1 text-lg font-semibold text-white">{team?.name ?? 'Free Agent'}</div>
+                            <div className="mt-1 text-lg font-semibold text-white">
+                                {team ? `${getCountryFlag(team.country)} ${team.name}` : 'Free Agent'}
+                            </div>
                             {team ? <div className="text-sm text-zinc-400">{team.country}</div> : null}
                         </div>
                         <div className="rounded-2xl bg-white/5 p-4">
                             <div className="text-sm text-zinc-400">Market Value</div>
-                            <div className="mt-1 text-lg font-semibold text-white">${driver.marketValue.toLocaleString()}</div>
+                            <div className="mt-1 text-lg font-semibold text-white">
+                                ${driver.marketValue.toLocaleString()}
+                            </div>
+                        </div>
+                        <div className="rounded-2xl bg-white/5 p-4">
+                            <div className="text-sm text-zinc-400">Average Finish</div>
+                            <div className="mt-1 text-lg font-semibold text-white">{averageFinish}</div>
                         </div>
                     </div>
                 </Card>
@@ -199,6 +238,7 @@ export function DriverDetailPage() {
                         ))}
 
                         <div className="flex flex-wrap gap-2 pt-2">
+                            <Pill>{championships} Titles</Pill>
                             <Pill>{wins} Wins</Pill>
                             <Pill>{podiums} Podiums</Pill>
                             <Pill>{dnfs} DNFs</Pill>
@@ -208,11 +248,11 @@ export function DriverDetailPage() {
             </div>
 
             <Card title="Race-by-Race Results">
-                {allRaceEntries.length === 0 ? (
+                {raceEntries.length === 0 ? (
                     <div className="text-sm text-zinc-400">No race data for this selection.</div>
                 ) : (
                     <div className="space-y-2">
-                        {[...allRaceEntries]
+                        {[...raceEntries]
                             .sort((a, b) => {
                                 if (a.seasonNumber !== b.seasonNumber) return b.seasonNumber - a.seasonNumber;
                                 return b.roundNumber - a.roundNumber;

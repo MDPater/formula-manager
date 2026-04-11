@@ -5,13 +5,13 @@ import { engineers as defaultEngineers } from '../data/engineers';
 import { pitCrewChiefs as defaultPitCrewChiefs } from '../data/pitCrewChief';
 import { teams as defaultTeams } from '../data/teams';
 import { progressDriversForSeason } from '../lib/driverProgression';
+import { runOffseasonDriverChanges } from '../lib/offseason';
 import { downloadJson, readBrowserSave, writeBrowserSave } from '../lib/persistence';
 import {
     buildFreshRostersFromSetup,
     createDefaultTeamRosters,
     getActiveDrivers,
     getDriverTeamId,
-    getFreeAgents,
     getTeamDriverIds,
 } from '../lib/roster';
 import { generateSeasonCalendar } from '../lib/seasonGenerator';
@@ -108,7 +108,26 @@ function getPlayerPitCrewChief(
 }
 
 function buildSeasonSummary(state: GameState): SeasonSummary {
-    const sortedTeams = [...state.teams].sort((a, b) => b.points - a.points);
+    const seasonHistory = state.history.filter((race) => race.seasonNumber === state.seasonNumber);
+
+    const teamPointsMap = new Map<string, number>();
+    for (const team of state.teams) teamPointsMap.set(team.id, 0);
+
+    for (const race of seasonHistory) {
+        for (const result of race.results) {
+            const teamId = getDriverTeamId(state.teamRosters, result.driverId);
+            if (!teamId) continue;
+            teamPointsMap.set(teamId, (teamPointsMap.get(teamId) ?? 0) + result.points);
+        }
+    }
+
+    const sortedTeams = [...state.teams]
+        .map((team) => ({
+            ...team,
+            computedPoints: teamPointsMap.get(team.id) ?? 0,
+        }))
+        .sort((a, b) => b.computedPoints - a.computedPoints);
+
     const championTeamId = sortedTeams[0]?.id ?? null;
     const playerTeamPosition =
         sortedTeams.findIndex((team) => team.id === state.playerTeamId) + 1 || null;
@@ -116,7 +135,7 @@ function buildSeasonSummary(state: GameState): SeasonSummary {
     const activeDrivers = getActiveDrivers(state.drivers, state.teamRosters);
 
     const driverStats = activeDrivers.map((driver) => {
-        const results = state.history
+        const results = seasonHistory
             .map((race) => race.results.find((entry) => entry.driverId === driver.id))
             .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry));
 
@@ -148,22 +167,15 @@ function buildSeasonSummary(state: GameState): SeasonSummary {
         }
     );
 
-    const driverProgressions = state.drivers.map((driver) => ({
-        driverId: driver.id,
-        oldOverall: driver.overall,
-        newOverall: driver.overall,
-        deltaOverall: 0,
-        oldAge: driver.age,
-        newAge: driver.age,
-    }));
-
     return {
         seasonNumber: state.seasonNumber,
         championDriverId,
         championTeamId,
         playerTeamPosition,
         playerDriverResults,
-        driverProgressions,
+        driverProgressions: [],
+        retirements: [],
+        newDrivers: [],
     };
 }
 
@@ -180,6 +192,7 @@ function buildSaveFile(state: GameState): SaveFile | null {
             saveName: state.activeSaveName,
             createdAt: now,
             updatedAt: now,
+            seasonNumber: state.seasonNumber,
             currentRound: state.currentRound,
             teamName: playerTeam.name,
             teamPoints: playerTeam.points,
@@ -226,7 +239,7 @@ export const useGameStore = create<GameState>((set, get) => {
 
     return {
         ...initial,
-        calendar: generateSeasonCalendar(initial.providerCalendar, 1, 15),
+        calendar: generateSeasonCalendar(initial.providerCalendar, INITIAL_SEASON_YEAR, 15),
 
         playerTeamId: defaultTeams[0].id,
         playerEngineerId: null,
@@ -444,7 +457,7 @@ export const useGameStore = create<GameState>((set, get) => {
                             points: r.points,
                             dnf: r.dnf,
                         })),
-                    }
+                    },
                 ];
 
                 const seasonComplete = nextCurrentRound >= state.calendar.length;
@@ -460,8 +473,19 @@ export const useGameStore = create<GameState>((set, get) => {
                 };
 
                 if (seasonComplete) {
+                    const seasonHistory = nextHistory.filter(
+                        (entry) => entry.seasonNumber === state.seasonNumber
+                    );
+                    const progressionPreview = progressDriversForSeason(state.drivers, seasonHistory);
                     const summary = buildSeasonSummary(nextStateBase);
-                    nextSeasonSummaries = [...state.seasonSummaries, summary];
+
+                    nextSeasonSummaries = [
+                        ...state.seasonSummaries,
+                        {
+                            ...summary,
+                            driverProgressions: progressionPreview.progressions,
+                        },
+                    ];
                 }
 
                 const nextState: GameState = {
@@ -539,10 +563,12 @@ export const useGameStore = create<GameState>((set, get) => {
             set((state) => {
                 if (!state.isSeasonComplete) return state;
 
-                const { drivers: progressedDrivers, progressions } = progressDriversForSeason(
-                    state.drivers,
-                    state.history
+                const latestSummary = state.seasonSummaries[state.seasonSummaries.length - 1];
+                const seasonHistory = state.history.filter(
+                    (entry) => entry.seasonNumber === state.seasonNumber
                 );
+
+                const progressionResult = progressDriversForSeason(state.drivers, seasonHistory);
 
                 const progressedEngineers = state.engineers.map((engineer) => ({
                     ...engineer,
@@ -553,6 +579,12 @@ export const useGameStore = create<GameState>((set, get) => {
                     ...chief,
                     age: chief.age + 1,
                 }));
+
+                const offseasonResult = runOffseasonDriverChanges(
+                    progressionResult.drivers,
+                    state.teamRosters,
+                    seasonHistory
+                );
 
                 const baseTeamsById = new Map(defaultTeams.map((team) => [team.id, team]));
 
@@ -569,12 +601,12 @@ export const useGameStore = create<GameState>((set, get) => {
                 });
 
                 const updatedSummaries = [...state.seasonSummaries];
-                const latestSummary = updatedSummaries[updatedSummaries.length - 1];
-
                 if (latestSummary) {
                     updatedSummaries[updatedSummaries.length - 1] = {
                         ...latestSummary,
-                        driverProgressions: progressions,
+                        driverProgressions: progressionResult.progressions,
+                        retirements: offseasonResult.retirements,
+                        newDrivers: offseasonResult.newDrivers,
                     };
                 }
 
@@ -587,10 +619,11 @@ export const useGameStore = create<GameState>((set, get) => {
 
                 const nextState: GameState = {
                     ...state,
-                    drivers: progressedDrivers,
+                    drivers: offseasonResult.drivers,
                     engineers: progressedEngineers,
                     pitCrewChiefs: progressedPitCrewChiefs,
                     teams: resetTeams,
+                    teamRosters: offseasonResult.teamRosters,
                     calendar: newCalendar,
                     currentRound: 0,
                     history: state.history,

@@ -1,18 +1,21 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { getTeamDrivers } from '../../lib/roster';
 import { useCareerSetupStore } from '../../store/careerSetupStore';
 import { useGameStore } from '../../store/gameStore';
+import { useUiStore } from '../../store/uiStore';
 
 export function TopBar({
     showNavToggle,
+    mobileNavOpen,
     onToggleNav,
 }: {
     showNavToggle: boolean;
+    mobileNavOpen: boolean;
     onToggleNav: () => void;
 }) {
     const location = useLocation();
     const isSetupRoute = location.pathname === '/career/setup';
+    const theme = useUiStore((state) => state.theme);
 
     const teams = useGameStore((state) => state.teams);
     const drivers = useGameStore((state) => state.drivers);
@@ -21,7 +24,6 @@ export function TopBar({
     const calendar = useGameStore((state) => state.calendar);
     const currentRound = useGameStore((state) => state.currentRound);
     const playerTeamId = useGameStore((state) => state.playerTeamId);
-    const teamRosters = useGameStore((state) => state.teamRosters);
     const seasonNumber = useGameStore((state) => state.seasonNumber);
     const isSeasonComplete = useGameStore((state) => state.isSeasonComplete);
 
@@ -63,23 +65,25 @@ export function TopBar({
         return () => window.removeEventListener('scroll', handleScroll);
     }, []);
 
-    const currentTeamDrivers = useMemo(
-        () => getTeamDrivers(drivers, teamRosters, playerTeamId),
-        [drivers, teamRosters, playerTeamId]
-    );
+    const headerClass =
+        theme === 'light'
+            ? `sticky top-0 z-40 border-b border-stone-300 bg-stone-50/90 backdrop-blur transition-all duration-300 ${scrolled ? 'py-2' : 'py-4'
+            }`
+            : `sticky top-0 z-40 border-b border-white/5 bg-[#2b2d31]/90 backdrop-blur transition-all duration-300 ${scrolled ? 'py-2' : 'py-4'
+            }`;
 
     if (isSetupRoute) {
         return (
-            <header className="sticky top-0 z-40 border-b border-white/10 bg-black/90 backdrop-blur">
+            <header className={headerClass}>
                 <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-4 md:flex-row md:items-center md:justify-between md:px-6">
                     <div>
                         <div className="text-[10px] uppercase tracking-[0.3em] text-zinc-500">
                             Career Setup
                         </div>
-                        <h1 className="text-lg font-semibold tracking-tight text-white md:text-2xl">
+                        <h1 className="text-lg font-semibold tracking-tight text-stone-900 dark:text-white md:text-2xl">
                             Build Your Team
                         </h1>
-                        <div className="mt-1 text-xs text-zinc-400">
+                        <div className="mt-1 text-xs text-stone-600 dark:text-zinc-400">
                             {setupSaveName || 'New Career'}
                         </div>
                     </div>
@@ -87,26 +91,33 @@ export function TopBar({
                     <div className="grid grid-cols-2 gap-2 md:flex md:items-center">
                         <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2">
                             <div className="text-[9px] uppercase tracking-[0.2em] text-zinc-500">Budget</div>
-                            <div className={`text-sm font-semibold ${setupRemainingBudget >= 0 ? 'text-white' : 'text-red-400'}`}>
+                            <div
+                                className={`text-sm font-semibold ${setupRemainingBudget >= 0 ? 'text-stone-900 dark:text-white' : 'text-red-400'
+                                    }`}
+                            >
                                 ${Math.max(setupRemainingBudget, 0).toLocaleString()}
                             </div>
                         </div>
 
                         <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2">
                             <div className="text-[9px] uppercase tracking-[0.2em] text-zinc-500">Drivers</div>
-                            <div className="text-sm font-semibold text-white">{setupDriverIds.length}/2</div>
+                            <div className="text-sm font-semibold text-stone-900 dark:text-white">
+                                {setupDriverIds.length}/2
+                            </div>
                         </div>
 
                         <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2">
                             <div className="text-[9px] uppercase tracking-[0.2em] text-zinc-500">Staff</div>
-                            <div className="text-sm font-semibold text-white">
+                            <div className="text-sm font-semibold text-stone-900 dark:text-white">
                                 {(setupEngineerId ? 1 : 0) + (setupPitCrewChiefId ? 1 : 0)}/2
                             </div>
                         </div>
 
                         <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2">
                             <div className="text-[9px] uppercase tracking-[0.2em] text-zinc-500">Season</div>
-                            <div className="text-sm font-semibold text-white">{setupSeasonLength} races</div>
+                            <div className="text-sm font-semibold text-stone-900 dark:text-white">
+                                {setupSeasonLength} races
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -115,18 +126,15 @@ export function TopBar({
     }
 
     return (
-        <header
-            className={`sticky top-0 z-40 border-b border-white/10 bg-black/80 backdrop-blur transition-all duration-300 ${scrolled ? 'py-2' : 'py-4'
-                }`}
-        >
+        <header className={headerClass}>
             <div className="mx-auto flex max-w-7xl flex-col gap-2 px-4 md:flex-row md:items-center md:justify-between md:px-6">
                 <div className="flex items-start gap-3">
                     {showNavToggle && (
                         <button
-                            className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-300 hover:bg-white/10"
+                            className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-stone-800 hover:bg-black/5 dark:text-zinc-300 dark:hover:bg-white/10 md:hidden"
                             onClick={onToggleNav}
                         >
-                            ☰
+                            {mobileNavOpen ? 'Hide Menu' : 'Show Menu'}
                         </button>
                     )}
 
@@ -134,41 +142,49 @@ export function TopBar({
                         <div className="text-[10px] uppercase tracking-[0.3em] text-zinc-500">
                             Season {seasonNumber}
                         </div>
-                        <h1 className="flex items-center gap-2 text-lg font-semibold tracking-tight text-white md:text-2xl">
-                            <span>{nextRace?.flag ?? '🏁'}</span>
-                            <span>
-                                {isSeasonComplete
-                                    ? 'Season Complete'
-                                    : nextRace
-                                        ? nextRace.name
-                                        : 'Season Complete'}
-                            </span>
-                        </h1>
-                        <div className="mt-1 text-xs text-zinc-400">
+
+                        <div className="flex flex-wrap items-center gap-3">
+                            <h1 className="flex items-center gap-2 text-lg font-semibold tracking-tight text-stone-900 dark:text-white md:text-2xl">
+                                <span>{nextRace?.flag ?? '🏁'}</span>
+                                <span>
+                                    {isSeasonComplete
+                                        ? 'Season Complete'
+                                        : nextRace
+                                            ? nextRace.name
+                                            : 'Season Complete'}
+                                </span>
+                            </h1>
+
+                            {isSeasonComplete && (
+                                <Link
+                                    to="/season-overview"
+                                    className="rounded-xl bg-red-500 px-3 py-2 text-xs font-semibold text-white hover:opacity-90"
+                                >
+                                    Season Overview
+                                </Link>
+                            )}
+                        </div>
+
+                        <div className="mt-1 text-xs text-stone-600 dark:text-zinc-400">
                             {activeSaveName}
                             {lastSavedAt ? ` · ${new Date(lastSavedAt).toLocaleString()}` : ''}
                         </div>
                     </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-2 md:flex md:items-center">
+                <div className="grid grid-cols-2 gap-2 md:flex md:items-center">
                     <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2">
                         <div className="text-[9px] uppercase tracking-[0.2em] text-zinc-500">RND</div>
-                        <div className="text-sm font-semibold text-white">
+                        <div className="text-sm font-semibold text-stone-900 dark:text-white">
                             {Math.min(currentRound + 1, calendar.length)}/{calendar.length}
                         </div>
                     </div>
 
                     <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2">
                         <div className="text-[9px] uppercase tracking-[0.2em] text-zinc-500">$</div>
-                        <div className="text-sm font-semibold text-white">
+                        <div className="text-sm font-semibold text-stone-900 dark:text-white">
                             {Math.round(playerTeam.budget / 1000000)}M
                         </div>
-                    </div>
-
-                    <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2">
-                        <div className="text-[9px] uppercase tracking-[0.2em] text-zinc-500">Drivers</div>
-                        <div className="text-sm font-semibold text-white">{currentTeamDrivers.length}</div>
                     </div>
 
                     {!scrolled && (
@@ -181,22 +197,15 @@ export function TopBar({
                             </button>
 
                             <button
-                                className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-zinc-300"
+                                className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-stone-800 dark:text-zinc-300"
                                 onClick={exportCurrentCareer}
                             >
                                 Export
                             </button>
 
-                            {isSeasonComplete ? (
-                                <Link
-                                    to="/season-overview"
-                                    className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-center text-xs text-zinc-300"
-                                >
-                                    Review
-                                </Link>
-                            ) : (
+                            {!isSeasonComplete && (
                                 <button
-                                    className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-zinc-300"
+                                    className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-stone-800 dark:text-zinc-300"
                                     onClick={exitToStartScreen}
                                 >
                                     Back

@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Card } from '../../components/ui/Card';
 import { SectionHeader } from '../../components/ui/SectionHeader';
+import { getCountryFlag } from '../../lib/countryFlags';
 import { getDriverTeamId, getFreeAgents } from '../../lib/roster';
 import { useGameStore } from '../../store/gameStore';
 
@@ -66,7 +67,7 @@ export function MarketPage() {
                                     to={`/drivers/${driver.id}`}
                                     className="text-sm text-zinc-300 underline-offset-4 hover:text-red-300 hover:underline md:text-base"
                                 >
-                                    {driver.name}
+                                    {getCountryFlag(driver.country)} {driver.name}
                                 </Link>
                                 <div className="text-xs text-zinc-500">
                                     {driver.country} · {driver.age} · {driver.teamName}
@@ -97,7 +98,7 @@ export function MarketPage() {
                                         to={`/drivers/${driver.id}`}
                                         className="text-sm text-zinc-300 underline-offset-4 hover:text-red-300 hover:underline md:text-base"
                                     >
-                                        {driver.name}
+                                        {getCountryFlag(driver.country)} {driver.name}
                                     </Link>
                                     <div className="text-xs text-zinc-500">
                                         {driver.country} · {driver.age}
@@ -128,7 +129,7 @@ export function MarketPage() {
                                             to={`/drivers/${driver.id}`}
                                             className="text-sm text-zinc-300 underline-offset-4 hover:text-red-300 hover:underline md:text-base"
                                         >
-                                            {driver.name}
+                                            {getCountryFlag(driver.country)} {driver.name}
                                         </Link>
                                         <div className="text-xs text-zinc-500">
                                             {driver.country} · {driver.age}
@@ -161,7 +162,7 @@ export function MarketPage() {
                                         to={`/drivers/${driver.id}`}
                                         className="text-sm text-zinc-300 underline-offset-4 hover:text-red-300 hover:underline md:text-base"
                                     >
-                                        {driver.name}
+                                        {getCountryFlag(driver.country)} {driver.name}
                                     </Link>
                                     <div className="text-xs text-zinc-500">
                                         {driver.country} · {driver.age}

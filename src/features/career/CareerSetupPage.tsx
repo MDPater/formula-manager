@@ -2,6 +2,7 @@ import { useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card } from '../../components/ui/Card';
 import { SectionHeader } from '../../components/ui/SectionHeader';
+import { getCountryFlag } from '../../lib/countryFlags';
 import { createSaveId } from '../../lib/persistence';
 import { useCareerSetupStore } from '../../store/careerSetupStore';
 import { useGameStore } from '../../store/gameStore';
@@ -54,6 +55,7 @@ export function CareerSetupPage() {
         (selectedPitCrewChief?.salary ?? 0);
 
     const remainingBudget = (selectedTeam?.budget ?? 0) - spent;
+
     const canStart =
         Boolean(selectedTeam) &&
         driverIds.length === 2 &&
@@ -62,14 +64,14 @@ export function CareerSetupPage() {
         remainingBudget >= 0 &&
         saveName.trim().length > 0;
 
-    function toggleDriver(driverId: string) {
-        if (driverIds.includes(driverId)) {
-            setDriverIds(driverIds.filter((id) => id !== driverId));
+    function toggleDriver(driverIdToToggle: string) {
+        if (driverIds.includes(driverIdToToggle)) {
+            setDriverIds(driverIds.filter((id) => id !== driverIdToToggle));
             return;
         }
 
         if (driverIds.length >= 2) return;
-        setDriverIds([...driverIds, driverId]);
+        setDriverIds([...driverIds, driverIdToToggle]);
     }
 
     function getTeamTier(teamBudget: number) {
@@ -126,7 +128,9 @@ export function CareerSetupPage() {
                                         : 'border-white/10 bg-white/5 hover:bg-white/10'
                                     }`}
                             >
-                                <div className="text-lg font-semibold text-white">{team.name}</div>
+                                <div className="text-lg font-semibold text-white">
+                                    {getCountryFlag(team.country)} {team.name}
+                                </div>
                                 <div className="mt-1 text-sm text-zinc-400">
                                     {team.country} · {getTeamTier(team.budget)}
                                 </div>
@@ -160,7 +164,9 @@ export function CareerSetupPage() {
                                         : 'border-white/10 bg-white/5 hover:bg-white/10'
                                     } ${disabled ? 'opacity-50' : ''}`}
                             >
-                                <div className="text-lg font-semibold text-white">{driver.name}</div>
+                                <div className="text-lg font-semibold text-white">
+                                    {getCountryFlag(driver.country)} {driver.name}
+                                </div>
                                 <div className="mt-1 text-sm text-zinc-400">
                                     {driver.country} · {driver.age}
                                 </div>
@@ -187,7 +193,9 @@ export function CareerSetupPage() {
                                     : 'border-white/10 bg-white/5 hover:bg-white/10'
                                 }`}
                         >
-                            <div className="text-lg font-semibold text-white">{engineer.name}</div>
+                            <div className="text-lg font-semibold text-white">
+                                {getCountryFlag(engineer.country)} {engineer.name}
+                            </div>
                             <div className="mt-1 text-sm text-zinc-400">
                                 {engineer.country} · {engineer.age}
                             </div>
@@ -213,7 +221,9 @@ export function CareerSetupPage() {
                                     : 'border-white/10 bg-white/5 hover:bg-white/10'
                                 }`}
                         >
-                            <div className="text-lg font-semibold text-white">{chief.name}</div>
+                            <div className="text-lg font-semibold text-white">
+                                {getCountryFlag(chief.country)} {chief.name}
+                            </div>
                             <div className="mt-1 text-sm text-zinc-400">
                                 {chief.country} · {chief.age}
                             </div>
@@ -255,25 +265,34 @@ export function CareerSetupPage() {
                         <div className="text-sm text-zinc-400">Team</div>
                         <div className="mt-1 text-lg font-semibold text-white">{selectedTeam?.name}</div>
                     </div>
+
                     <div className="rounded-2xl bg-white/5 p-4">
                         <div className="text-sm text-zinc-400">Drivers Cost</div>
                         <div className="mt-1 text-lg font-semibold text-white">
                             ${selectedDrivers.reduce((sum, d) => sum + d.marketValue, 0).toLocaleString()}
                         </div>
                     </div>
+
                     <div className="rounded-2xl bg-white/5 p-4">
                         <div className="text-sm text-zinc-400">Staff Cost</div>
                         <div className="mt-1 text-lg font-semibold text-white">
-                            ${((selectedEngineer?.salary ?? 0) + (selectedPitCrewChief?.salary ?? 0)).toLocaleString()}
+                            ${(
+                                (selectedEngineer?.salary ?? 0) + (selectedPitCrewChief?.salary ?? 0)
+                            ).toLocaleString()}
                         </div>
                     </div>
+
                     <div className="rounded-2xl bg-white/5 p-4">
                         <div className="text-sm text-zinc-400">Season Length</div>
                         <div className="mt-1 text-lg font-semibold text-white">{seasonLength} races</div>
                     </div>
+
                     <div className="rounded-2xl bg-white/5 p-4">
                         <div className="text-sm text-zinc-400">Remaining Budget</div>
-                        <div className={`mt-1 text-lg font-semibold ${remainingBudget >= 0 ? 'text-white' : 'text-red-400'}`}>
+                        <div
+                            className={`mt-1 text-lg font-semibold ${remainingBudget >= 0 ? 'text-white' : 'text-red-400'
+                                }`}
+                        >
                             ${remainingBudget.toLocaleString()}
                         </div>
                     </div>

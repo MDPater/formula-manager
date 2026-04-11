@@ -20,13 +20,13 @@ export function SideNav({
     return (
         <>
             <div
-                className={`fixed inset-0 z-40 bg-black/60 backdrop-blur-sm transition-opacity md:hidden ${mobileOpen ? 'opacity-100' : 'pointer-events-none opacity-0'
+                className={`fixed inset-0 z-40 bg-black/50 backdrop-blur-sm transition-opacity md:hidden ${mobileOpen ? 'opacity-100' : 'pointer-events-none opacity-0'
                     }`}
                 onClick={onCloseMobile}
             />
 
             <aside
-                className={`fixed inset-y-0 left-0 z-50 flex h-screen w-[272px] flex-col border-r border-white/10 bg-zinc-950/95 px-4 py-5 backdrop-blur transition-transform duration-300 ${mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+                className={`fixed inset-y-0 left-0 z-50 flex h-screen w-[272px] flex-col border-r border-white/5 bg-[#2b2d31]/95 px-4 py-5 backdrop-blur transition-transform duration-300 ${mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
                     }`}
             >
                 <div className="mb-8 rounded-2xl border border-red-500/20 bg-gradient-to-br from-red-500/10 to-transparent p-4">

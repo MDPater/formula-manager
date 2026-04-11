@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { Card } from '../../components/ui/Card';
 import { Pill } from '../../components/ui/Pill';
 import { SectionHeader } from '../../components/ui/SectionHeader';
+import { getCountryFlag } from '../../lib/countryFlags';
 import { getTeamDrivers } from '../../lib/roster';
 import { useGameStore } from '../../store/gameStore';
 
@@ -24,7 +25,7 @@ export function TeamPage() {
         <div className="space-y-6 md:space-y-8">
             <SectionHeader
                 eyebrow="Garage"
-                title={playerTeam.name}
+                title={`${getCountryFlag(playerTeam.country)} ${playerTeam.name}`}
                 description={`Base country: ${playerTeam.country}. Review your drivers, staff, and car package.`}
             />
 
@@ -32,7 +33,9 @@ export function TeamPage() {
                 <Card title="Car Package">
                     <div className="mb-4 rounded-2xl bg-white/5 p-4">
                         <div className="text-sm text-zinc-400">Team Country</div>
-                        <div className="mt-2 text-xl font-bold text-white">{playerTeam.country}</div>
+                        <div className="mt-2 text-xl font-bold text-white">
+                            {getCountryFlag(playerTeam.country)} {playerTeam.country}
+                        </div>
                     </div>
 
                     <div className="grid gap-3 sm:grid-cols-3">
@@ -61,7 +64,7 @@ export function TeamPage() {
                                             to={`/drivers/${driver.id}`}
                                             className="text-lg font-semibold text-white underline-offset-4 hover:text-red-300 hover:underline"
                                         >
-                                            {driver.name}
+                                            {getCountryFlag(driver.country)} {driver.name}
                                         </Link>
                                         <div className="mt-1 text-sm text-zinc-400">
                                             {driver.country} · {driver.age} years old
@@ -86,7 +89,9 @@ export function TeamPage() {
                 <Card title="Engineer">
                     {engineer ? (
                         <div className="rounded-2xl bg-white/5 p-4">
-                            <div className="text-lg font-semibold text-white">{engineer.name}</div>
+                            <div className="text-lg font-semibold text-white">
+                                {getCountryFlag(engineer.country)} {engineer.name}
+                            </div>
                             <div className="mt-1 text-sm text-zinc-400">
                                 {engineer.country} · {engineer.age}
                             </div>
@@ -102,7 +107,9 @@ export function TeamPage() {
                 <Card title="Pit Crew Chief">
                     {pitCrewChief ? (
                         <div className="rounded-2xl bg-white/5 p-4">
-                            <div className="text-lg font-semibold text-white">{pitCrewChief.name}</div>
+                            <div className="text-lg font-semibold text-white">
+                                {getCountryFlag(pitCrewChief.country)} {pitCrewChief.name}
+                            </div>
                             <div className="mt-1 text-sm text-zinc-400">
                                 {pitCrewChief.country} · {pitCrewChief.age}
                             </div>
