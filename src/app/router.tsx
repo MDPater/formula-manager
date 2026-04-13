@@ -10,6 +10,8 @@ import { ResultsPage } from '../features/results/ResultsPage';
 import { SeasonOverviewPage } from '../features/season/SeasonOverviewPage';
 import { StandingsPage } from '../features/standings/StandingsPage';
 import { TeamPage } from '../features/team/TeamPage';
+import { OffSeasonPage } from '../features/offseason/OffSeasonPage';
+import { HallOfFamePage } from '../features/halloffame/HallOfFamePage';
 
 export const router = createBrowserRouter([
     {
@@ -26,6 +28,8 @@ export const router = createBrowserRouter([
             { path: 'standings', element: <StandingsPage /> },
             { path: 'drivers/:driverId', element: <DriverDetailPage /> },
             { path: 'season-overview', element: <SeasonOverviewPage /> },
+            { path: 'offseason', element: <OffSeasonPage /> },
+            { path: 'hall-of-fame', element: <HallOfFamePage /> },
         ],
     },
 ]);

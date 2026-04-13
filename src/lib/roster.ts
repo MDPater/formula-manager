@@ -10,7 +10,7 @@ export function getTeamDrivers(
     teamId: string
 ): Driver[] {
     const ids = new Set(getTeamDriverIds(teamRosters, teamId));
-    return drivers.filter((driver) => ids.has(driver.id));
+    return drivers.filter((driver) => ids.has(driver.id) && !driver.retired);
 }
 
 export function getDriverTeamId(teamRosters: TeamRoster, driverId: string): string | null {
@@ -25,7 +25,7 @@ export function getFreeAgents(
     teamRosters: TeamRoster
 ): Driver[] {
     const assigned = new Set(Object.values(teamRosters).flat());
-    return drivers.filter((driver) => !assigned.has(driver.id));
+    return drivers.filter((driver) => !assigned.has(driver.id) && !driver.retired);
 }
 
 export function getActiveDrivers(
@@ -33,11 +33,18 @@ export function getActiveDrivers(
     teamRosters: TeamRoster
 ): Driver[] {
     const assigned = new Set(Object.values(teamRosters).flat());
-    return drivers.filter((driver) => assigned.has(driver.id));
+    return drivers.filter((driver) => assigned.has(driver.id) && !driver.retired);
+}
+
+export function getRetiredDrivers(drivers: Driver[]): Driver[] {
+    return drivers.filter((driver) => Boolean(driver.retired));
 }
 
 export function createDefaultTeamRosters(teams: Team[], drivers: Driver[]): TeamRoster {
-    const sorted = [...drivers].sort((a, b) => b.overall - a.overall);
+    const sorted = [...drivers]
+        .filter((driver) => !driver.retired)
+        .sort((a, b) => b.overall - a.overall);
+
     const roster: TeamRoster = {};
     let cursor = 0;
 
@@ -65,7 +72,7 @@ export function buildFreshRostersFromSetup(
     roster[selectedTeamId] = [...selectedDriverIds];
 
     const remainingDrivers = drivers
-        .filter((driver) => !selectedSet.has(driver.id))
+        .filter((driver) => !selectedSet.has(driver.id) && !driver.retired)
         .sort((a, b) => b.overall - a.overall);
 
     for (const team of teams) {

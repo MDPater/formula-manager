@@ -294,11 +294,18 @@ export function SeasonOverviewPage() {
             </div>
 
             <div className="flex flex-wrap gap-3">
-                <button
-                    onClick={handleStartNextSeason}
+                <Link
+                    to="/offseason"
                     className="rounded-2xl bg-red-500 px-5 py-3 font-semibold text-white hover:opacity-90"
                 >
-                    Start Next Season
+                    Enter Offseason Market
+                </Link>
+
+                <button
+                    onClick={handleStartNextSeason}
+                    className="rounded-2xl border border-white/10 bg-white/5 px-5 py-3 text-zinc-300 hover:bg-white/10"
+                >
+                    Skip Market & Start Next Season
                 </button>
 
                 <Link
