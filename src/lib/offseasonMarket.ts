@@ -23,9 +23,7 @@ export function getTeamPrestigeScore(team: Team) {
 }
 
 export function getDriverDemandPrice(driver: Driver, fromAnotherTeam: boolean) {
-    return fromAnotherTeam
-        ? Math.round(driver.marketValue * 1.25)
-        : driver.marketValue;
+    return fromAnotherTeam ? Math.round(driver.marketValue * 1.25) : 0;
 }
 
 export function getEngineerDemandPrice(engineer: Engineer) {

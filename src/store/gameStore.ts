@@ -93,6 +93,10 @@ type GameState = {
         inDriverId: string
     ) => { ok: boolean; message: string };
 
+    pendingPrizeMoney: number;
+    offseasonReady: boolean;
+    prepareOffseason: () => void;
+
     runNextRace: () => void;
     upgradeCar: (part: 'aero' | 'power' | 'reliability') => void;
     startNextSeason: () => void;
@@ -116,16 +120,16 @@ function cloneInitialWorld() {
 }
 
 function getPrizeMoneyForPosition(position: number | null) {
-    if (position === 1) return 18000000;
-    if (position === 2) return 15000000;
-    if (position === 3) return 13000000;
-    if (position === 4) return 11000000;
-    if (position === 5) return 9500000;
-    if (position === 6) return 8000000;
-    if (position === 7) return 6500000;
-    if (position === 8) return 5000000;
-    if (position === 9) return 3500000;
-    return 2500000;
+    if (position === 1) return 45000000;
+    if (position === 2) return 36000000;
+    if (position === 3) return 30000000;
+    if (position === 4) return 24000000;
+    if (position === 5) return 20000000;
+    if (position === 6) return 16000000;
+    if (position === 7) return 12000000;
+    if (position === 8) return 9000000;
+    if (position === 9) return 7000000;
+    return 5000000;
 }
 
 function getPlayerTeam(state: Pick<GameState, 'teams' | 'playerTeamId'>) {
@@ -291,6 +295,8 @@ export const useGameStore = create<GameState>((set, get) => {
         activeSaveName: null,
         hasLoadedCareer: false,
         lastSavedAt: null,
+        pendingPrizeMoney: 0,
+        offseasonReady: false,
 
         replacePlayerDriver: (outDriverId, inDriverId) => {
             const state = get();
@@ -628,6 +634,7 @@ export const useGameStore = create<GameState>((set, get) => {
             }),
 
         createNewCareerFromSetup: (payload) => {
+
             const fresh = cloneInitialWorld();
 
             const selectedTeam = fresh.teams.find((team) => team.id === payload.teamId) ?? fresh.teams[0];
@@ -691,6 +698,8 @@ export const useGameStore = create<GameState>((set, get) => {
                 activeSaveName: payload.saveName,
                 hasLoadedCareer: true,
                 lastSavedAt: null,
+                pendingPrizeMoney: 0,
+                offseasonReady: false,
 
                 createNewCareerFromSetup: get().createNewCareerFromSetup,
                 loadCareer: get().loadCareer,
@@ -709,6 +718,41 @@ export const useGameStore = create<GameState>((set, get) => {
                 lastSavedAt: save?.meta.updatedAt ?? null,
             });
         },
+
+        prepareOffseason: () =>
+            set((state) => {
+                if (!state.isSeasonComplete || state.offseasonReady) return state;
+
+                const latestSummary = state.seasonSummaries[state.seasonSummaries.length - 1];
+                const playerEngineer =
+                    state.engineers.find((item) => item.id === state.playerEngineerId) ?? null;
+                const playerChief =
+                    state.pitCrewChiefs.find((item) => item.id === state.playerPitCrewChiefId) ?? null;
+
+                const prizeMoney = getPrizeMoneyForPosition(latestSummary?.playerTeamPosition ?? null);
+                const staffCost = (playerEngineer?.salary ?? 0) + (playerChief?.salary ?? 0);
+                const netPrize = Math.max(0, prizeMoney - staffCost);
+
+                const updatedTeams = state.teams.map((team) =>
+                    team.id === state.playerTeamId
+                        ? { ...team, budget: team.budget + netPrize }
+                        : team
+                );
+
+                const nextState = {
+                    ...state,
+                    teams: updatedTeams,
+                    pendingPrizeMoney: netPrize,
+                    offseasonReady: true,
+                };
+
+                const save = persistState(nextState as any);
+
+                return {
+                    ...nextState,
+                    lastSavedAt: save?.meta.updatedAt ?? state.lastSavedAt,
+                };
+            }),
 
         loadCareer: (saveId) => {
             const save = readBrowserSave(saveId);
@@ -738,6 +782,8 @@ export const useGameStore = create<GameState>((set, get) => {
                 activeSaveName: save.meta.saveName,
                 hasLoadedCareer: true,
                 lastSavedAt: save.meta.updatedAt,
+                pendingPrizeMoney: 0,
+                offseasonReady: false,
             });
         },
 
@@ -953,8 +999,6 @@ export const useGameStore = create<GameState>((set, get) => {
                 const playerChief =
                     state.pitCrewChiefs.find((item) => item.id === state.playerPitCrewChiefId) ?? null;
 
-                const prizeMoney = getPrizeMoneyForPosition(latestSummary?.playerTeamPosition ?? null);
-                const staffCost = (playerEngineer?.salary ?? 0) + (playerChief?.salary ?? 0);
 
                 const seasonHistory = state.history.filter(
                     (entry) => entry.seasonNumber === state.seasonNumber
@@ -992,7 +1036,7 @@ export const useGameStore = create<GameState>((set, get) => {
                             power: base?.power ?? team.power,
                             reliability: base?.reliability ?? team.reliability,
                             points: 0,
-                            budget: Math.max(0, team.budget + prizeMoney - staffCost),
+                            budget: team.budget,
                         };
                     }
 

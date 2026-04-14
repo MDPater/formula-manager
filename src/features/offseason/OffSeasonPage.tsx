@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card } from '../../components/ui/Card';
 import { SectionHeader } from '../../components/ui/SectionHeader';
@@ -16,6 +16,10 @@ type ActiveTab = 'drivers' | 'staff';
 
 export function OffSeasonPage() {
     const navigate = useNavigate();
+
+    const prepareOffseason = useGameStore((state) => state.prepareOffseason);
+    const pendingPrizeMoney = useGameStore((state) => state.pendingPrizeMoney);
+    const offseasonReady = useGameStore((state) => state.offseasonReady);
 
     const isSeasonComplete = useGameStore((state) => state.isSeasonComplete);
     const teams = useGameStore((state) => state.teams);
@@ -41,6 +45,16 @@ export function OffSeasonPage() {
     const [busyEngineerId, setBusyEngineerId] = useState<string | null>(null);
     const [busyChiefId, setBusyChiefId] = useState<string | null>(null);
     const [finalizing, setFinalizing] = useState(false);
+
+    useState(() => {
+        return null;
+    });
+
+    useEffect(() => {
+        if (!offseasonReady && isSeasonComplete) {
+            prepareOffseason();
+        }
+    }, [offseasonReady, isSeasonComplete, prepareOffseason]);
 
     const playerDriverIds = teamRosters[playerTeamId] ?? [];
     const currentEngineer = engineers.find((item) => item.id === playerEngineerId) ?? null;
@@ -172,6 +186,31 @@ export function OffSeasonPage() {
                 title="Driver & Staff Market"
                 description="Upgrade your lineup before the new season begins."
             />
+
+            <Card title="Season Financial Summary">
+                <div className="grid gap-4 md:grid-cols-3">
+                    <div className="rounded-2xl bg-white/5 p-4">
+                        <div className="text-sm text-zinc-400">Final Position</div>
+                        <div className="mt-2 text-2xl font-bold text-white">
+                            {latestSummary?.playerTeamPosition ? `P${latestSummary.playerTeamPosition}` : '—'}
+                        </div>
+                    </div>
+
+                    <div className="rounded-2xl bg-white/5 p-4">
+                        <div className="text-sm text-zinc-400">Offseason Winnings</div>
+                        <div className="mt-2 text-2xl font-bold text-emerald-400">
+                            ${pendingPrizeMoney.toLocaleString()}
+                        </div>
+                    </div>
+
+                    <div className="rounded-2xl bg-white/5 p-4">
+                        <div className="text-sm text-zinc-400">Current Budget</div>
+                        <div className="mt-2 text-2xl font-bold text-white">
+                            ${playerTeam.budget.toLocaleString()}
+                        </div>
+                    </div>
+                </div>
+            </Card>
 
             <div className="grid gap-4 md:grid-cols-4">
                 <Card title="Team">

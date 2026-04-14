@@ -50,7 +50,7 @@ function calculatePerformanceScore(driver: Driver, history: RaceHistoryEntry[]) 
     else if (stats.points >= 160) score += 1.1;
     else if (stats.points >= 110) score += 0.8;
     else if (stats.points >= 70) score += 0.45;
-    else if (stats.points <= 5 && stats.races > 0) score -= 0.6;
+    else if (stats.points <= 5 && stats.races > 0) score -= driver.age <= 24 ? 0.25 : 0.6;
 
     if (stats.wins >= 6) score += 0.55;
     else if (stats.wins >= 3) score += 0.35;
@@ -64,7 +64,7 @@ function calculatePerformanceScore(driver: Driver, history: RaceHistoryEntry[]) 
 
     if (stats.averageFinish <= 4) score += 0.45;
     else if (stats.averageFinish <= 7) score += 0.15;
-    else if (stats.averageFinish >= 14) score -= 0.45;
+    else if (stats.averageFinish >= 14) score -= driver.age <= 24 ? 0.2 : 0.45;
 
     if (stats.dnfs >= 4) score -= 0.4;
 
@@ -77,6 +77,27 @@ function calculatePerformanceScore(driver: Driver, history: RaceHistoryEntry[]) 
 
     return score;
 }
+
+function getDevelopmentPotentialScore(driver: Driver) {
+    const age = driver.age;
+    const overall = driver.overall;
+
+    let score = 0;
+
+    if (age <= 18) score += 1.05;
+    else if (age <= 20) score += 0.85;
+    else if (age <= 22) score += 0.65;
+    else if (age <= 24) score += 0.35;
+
+    if (overall <= 74) score += 0.45;
+    else if (overall <= 79) score += 0.25;
+    else if (overall >= 92) score -= 0.15;
+
+    score += (Math.random() - 0.5) * 0.25;
+
+    return score;
+}
+
 
 /**
  * Age still matters a lot, especially after 35.
@@ -101,8 +122,9 @@ function scoreToOverallDelta(totalScore: number, age: number, overall: number) {
     if (age >= 37 && totalScore <= -0.8) return -2;
     if (age >= 35 && totalScore <= -0.25) return -1;
 
-    if (totalScore >= 2.15 && age <= 22 && overall <= 88) return 2;
-    if (totalScore >= 1.15 && age <= 28 && overall <= 93) return 1;
+    if (totalScore >= 2.35 && age <= 23 && overall <= 86) return 2;
+    if (totalScore >= 1.05 && age <= 30 && overall <= 94) return 1;
+
 
     if (totalScore <= -2.3) return -3;
     if (totalScore <= -1.35) return -2;
@@ -156,8 +178,9 @@ export function progressDriversForSeason(
     const updatedDrivers = drivers.map((driver) => {
         const stats = getDriverSeasonStats(history, driver.id);
         const performanceScore = calculatePerformanceScore(driver, history);
+        const developmentPotentialScore = getDevelopmentPotentialScore(driver);
         const ageAdjustment = getAgeAdjustment(driver.age, driver.overall);
-        const totalScore = performanceScore + ageAdjustment;
+        const totalScore = performanceScore + developmentPotentialScore + ageAdjustment;
 
         let deltaOverall = scoreToOverallDelta(totalScore, driver.age, driver.overall);
 
