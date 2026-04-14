@@ -8,6 +8,36 @@ function clamp(value: number, min = 60, max = 99) {
     return Math.max(min, Math.min(max, value));
 }
 
+function seededUnit(id: string, salt: string) {
+    const key = `${id}-${salt}`;
+    let hash = 2166136261;
+    for (let i = 0; i < key.length; i += 1) {
+        hash ^= key.charCodeAt(i);
+        hash = Math.imul(hash, 16777619);
+    }
+    return (hash >>> 0) / 4294967295;
+}
+
+function getYouthDevelopmentVariance(driver: Driver, seasonRaceCount: number) {
+    if (driver.age > 24) return 0;
+
+    // Not every young driver has elite upside.
+    const basePotential = seededUnit(driver.id, 'potential');
+    const breakoutChance = 0.1 + basePotential * 0.2; // 10% - 30%
+    const bustChance = 0.08 + (1 - basePotential) * 0.22; // 8% - 30%
+    const seasonRoll = Math.random();
+
+    if (seasonRoll < breakoutChance && seasonRaceCount >= 8) {
+        return 0.35 + basePotential * 0.65;
+    }
+
+    if (seasonRoll > 1 - bustChance) {
+        return -0.25 - (1 - basePotential) * 0.7;
+    }
+
+    return (Math.random() - 0.5) * 0.15;
+}
+
 function getDriverSeasonStats(history: RaceHistoryEntry[], driverId: string) {
     const results = history
         .map((race) => race.results.find((entry) => entry.driverId === driverId))
@@ -180,7 +210,8 @@ export function progressDriversForSeason(
         const performanceScore = calculatePerformanceScore(driver, history);
         const developmentPotentialScore = getDevelopmentPotentialScore(driver);
         const ageAdjustment = getAgeAdjustment(driver.age, driver.overall);
-        const totalScore = performanceScore + developmentPotentialScore + ageAdjustment;
+        const youthVariance = getYouthDevelopmentVariance(driver, stats.races);
+        const totalScore = performanceScore + developmentPotentialScore + ageAdjustment + youthVariance;
 
         let deltaOverall = scoreToOverallDelta(totalScore, driver.age, driver.overall);
 

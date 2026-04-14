@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { Card } from '../../components/ui/Card';
 import { Pill } from '../../components/ui/Pill';
 import { SectionHeader } from '../../components/ui/SectionHeader';
@@ -7,6 +7,7 @@ import { getTeamDrivers } from '../../lib/roster';
 import { useGameStore } from '../../store/gameStore';
 
 export function TeamPage() {
+    const { teamId } = useParams();
     const teams = useGameStore((state) => state.teams);
     const drivers = useGameStore((state) => state.drivers);
     const teamRosters = useGameStore((state) => state.teamRosters);
@@ -16,8 +17,10 @@ export function TeamPage() {
     const playerEngineerId = useGameStore((state) => state.playerEngineerId);
     const playerPitCrewChiefId = useGameStore((state) => state.playerPitCrewChiefId);
 
-    const playerTeam = teams.find((team) => team.id === playerTeamId) ?? teams[0];
-    const teamDrivers = getTeamDrivers(drivers, teamRosters, playerTeamId);
+    const selectedTeamId = teamId ?? playerTeamId;
+    const selectedTeam = teams.find((team) => team.id === selectedTeamId) ?? teams[0];
+    const isPlayerTeam = selectedTeam.id === playerTeamId;
+    const teamDrivers = getTeamDrivers(drivers, teamRosters, selectedTeam.id);
     const engineer = engineers.find((item) => item.id === playerEngineerId) ?? null;
     const pitCrewChief = pitCrewChiefs.find((item) => item.id === playerPitCrewChiefId) ?? null;
 
@@ -25,8 +28,8 @@ export function TeamPage() {
         <div className="space-y-6 md:space-y-8">
             <SectionHeader
                 eyebrow="Garage"
-                title={`${getCountryFlag(playerTeam.country)} ${playerTeam.name}`}
-                description={`Base country: ${playerTeam.country}. Review your drivers, staff, and car package.`}
+                title={`${getCountryFlag(selectedTeam.country)} ${selectedTeam.name}`}
+                description={`Base country: ${selectedTeam.country}. Review drivers, staff, and the car package.`}
             />
 
             <div className="grid gap-4 xl:grid-cols-[0.8fr_1.2fr]">
@@ -34,22 +37,22 @@ export function TeamPage() {
                     <div className="mb-4 rounded-2xl bg-white/5 p-4">
                         <div className="text-sm text-zinc-400">Team Country</div>
                         <div className="mt-2 text-xl font-bold text-white">
-                            {getCountryFlag(playerTeam.country)} {playerTeam.country}
+                            {getCountryFlag(selectedTeam.country)} {selectedTeam.country}
                         </div>
                     </div>
 
                     <div className="grid gap-3 sm:grid-cols-3">
                         <div className="rounded-2xl bg-white/5 p-4">
                             <div className="text-sm text-zinc-400">Aero</div>
-                            <div className="mt-2 text-2xl font-bold text-white">{playerTeam.aero}</div>
+                            <div className="mt-2 text-2xl font-bold text-white">{selectedTeam.aero}</div>
                         </div>
                         <div className="rounded-2xl bg-white/5 p-4">
                             <div className="text-sm text-zinc-400">Power</div>
-                            <div className="mt-2 text-2xl font-bold text-white">{playerTeam.power}</div>
+                            <div className="mt-2 text-2xl font-bold text-white">{selectedTeam.power}</div>
                         </div>
                         <div className="rounded-2xl bg-white/5 p-4">
                             <div className="text-sm text-zinc-400">Reliability</div>
-                            <div className="mt-2 text-2xl font-bold text-white">{playerTeam.reliability}</div>
+                            <div className="mt-2 text-2xl font-bold text-white">{selectedTeam.reliability}</div>
                         </div>
                     </div>
                 </Card>
@@ -87,7 +90,7 @@ export function TeamPage() {
 
             <div className="grid gap-4 xl:grid-cols-2">
                 <Card title="Engineer">
-                    {engineer ? (
+                    {isPlayerTeam && engineer ? (
                         <div className="rounded-2xl bg-white/5 p-4">
                             <div className="text-lg font-semibold text-white">
                                 {getCountryFlag(engineer.country)} {engineer.name}
@@ -105,7 +108,7 @@ export function TeamPage() {
                 </Card>
 
                 <Card title="Pit Crew Chief">
-                    {pitCrewChief ? (
+                    {isPlayerTeam && pitCrewChief ? (
                         <div className="rounded-2xl bg-white/5 p-4">
                             <div className="text-lg font-semibold text-white">
                                 {getCountryFlag(pitCrewChief.country)} {pitCrewChief.name}

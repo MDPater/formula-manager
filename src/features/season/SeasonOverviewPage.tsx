@@ -1,6 +1,8 @@
 import { useNavigate, Link } from 'react-router-dom';
 import { Card } from '../../components/ui/Card';
+import { DriverLink } from '../../components/ui/DriverLink';
 import { SectionHeader } from '../../components/ui/SectionHeader';
+import { TeamLink } from '../../components/ui/TeamLink';
 import { getCountryFlag } from '../../lib/countryFlags';
 import { useGameStore } from '../../store/gameStore';
 
@@ -60,7 +62,11 @@ export function SeasonOverviewPage() {
     const championTeam = teams.find((t) => t.id === latest.championTeamId);
 
     const mostImproved = latest.driverProgressions.filter((entry) => entry.deltaOverall > 0);
-    const mostDeclined = latest.driverProgressions.filter((entry) => entry.deltaOverall < 0);
+    const mostDeclined = latest.driverProgressions.filter((entry) => {
+        if (entry.deltaOverall >= 0) return false;
+        const driver = drivers.find((d) => d.id === entry.driverId);
+        return !driver?.retired;
+    });
 
     function handleStartNextSeason() {
         startNextSeason();
@@ -79,14 +85,22 @@ export function SeasonOverviewPage() {
                 <Card title="Drivers' Champion">
                     <div className="text-sm text-zinc-400">Best driver this season</div>
                     <div className="mt-2 text-xl font-semibold text-white">
-                        {championDriver ? `${getCountryFlag(championDriver.country)} ${championDriver.name}` : '—'}
+                        {championDriver ? (
+                            <DriverLink
+                                driverId={championDriver.id}
+                                driverName={championDriver.name}
+                                country={championDriver.country}
+                            />
+                        ) : '—'}
                     </div>
                 </Card>
 
                 <Card title="Constructors' Champion">
                     <div className="text-sm text-zinc-400">Best team this season</div>
                     <div className="mt-2 text-xl font-semibold text-white">
-                        {championTeam ? `${getCountryFlag(championTeam.country)} ${championTeam.name}` : '—'}
+                        {championTeam ? (
+                            <TeamLink teamId={championTeam.id} teamName={championTeam.name} country={championTeam.country} />
+                        ) : '—'}
                     </div>
                 </Card>
 
@@ -109,7 +123,9 @@ export function SeasonOverviewPage() {
                         <div className="rounded-2xl bg-white/5 p-4">
                             <div className="text-sm text-zinc-400">Team</div>
                             <div className="mt-1 text-lg font-semibold text-white">
-                                {playerTeam ? `${getCountryFlag(playerTeam.country)} ${playerTeam.name}` : '—'}
+                                {playerTeam ? (
+                                    <TeamLink teamId={playerTeam.id} teamName={playerTeam.name} country={playerTeam.country} />
+                                ) : '—'}
                             </div>
                         </div>
 
@@ -150,7 +166,9 @@ export function SeasonOverviewPage() {
                                 >
                                     <div>
                                         <div className="text-white">
-                                            {driver ? `${getCountryFlag(driver.country)} ${driver.name}` : entry.driverId}
+                                            {driver ? (
+                                                <DriverLink driverId={driver.id} driverName={driver.name} country={driver.country} />
+                                            ) : entry.driverId}
                                         </div>
                                         <div className="text-xs text-zinc-400">{driver?.country ?? ''}</div>
                                     </div>
@@ -181,7 +199,9 @@ export function SeasonOverviewPage() {
                                     >
                                         <div>
                                             <div className="text-white">
-                                                {driver ? `${getCountryFlag(driver.country)} ${driver.name}` : entry.driverId}
+                                                {driver ? (
+                                                    <DriverLink driverId={driver.id} driverName={driver.name} country={driver.country} />
+                                                ) : entry.driverId}
                                             </div>
                                             <div className="text-xs text-zinc-400">
                                                 Age {entry.oldAge} → {entry.newAge}
@@ -216,7 +236,9 @@ export function SeasonOverviewPage() {
                                     >
                                         <div>
                                             <div className="text-white">
-                                                {driver ? `${getCountryFlag(driver.country)} ${driver.name}` : entry.driverId}
+                                                {driver ? (
+                                                    <DriverLink driverId={driver.id} driverName={driver.name} country={driver.country} />
+                                                ) : entry.driverId}
                                             </div>
                                             <div className="text-xs text-zinc-400">
                                                 Age {entry.oldAge} → {entry.newAge}

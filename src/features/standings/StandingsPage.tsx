@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Card } from '../../components/ui/Card';
+import { TeamLink } from '../../components/ui/TeamLink';
 import { SectionHeader } from '../../components/ui/SectionHeader';
-import { getActiveDrivers, getDriverTeamId } from '../../lib/roster';
 import { getCountryFlag } from '../../lib/countryFlags';
 import { useGameStore } from '../../store/gameStore';
 
@@ -23,7 +23,6 @@ function getStandingBadge(position: number) {
 export function StandingsPage() {
     const teams = useGameStore((state) => state.teams);
     const drivers = useGameStore((state) => state.drivers);
-    const teamRosters = useGameStore((state) => state.teamRosters);
     const history = useGameStore((state) => state.history);
     const currentSeason = useGameStore((state) => state.seasonNumber);
 
@@ -44,18 +43,35 @@ export function StandingsPage() {
     const filteredHistory = history.filter((race) => race.seasonNumber === selectedYear);
 
     const teamPointsMap = new Map<string, number>();
-    const activeDrivers = getActiveDrivers(drivers, teamRosters);
+    const driverPointsMap = new Map<
+        string,
+        {
+            driverId: string;
+            driverName: string;
+            points: number;
+            teamId: string | null;
+            teamName: string;
+            teamCountry: string | null;
+        }
+    >();
 
-    for (const team of teams) {
-        teamPointsMap.set(team.id, 0);
-    }
+    for (const team of teams) teamPointsMap.set(team.id, 0);
 
     for (const race of filteredHistory) {
         for (const result of race.results) {
-            const teamId = getDriverTeamId(teamRosters, result.driverId);
-            if (!teamId) continue;
+            if (result.teamId) {
+                teamPointsMap.set(result.teamId, (teamPointsMap.get(result.teamId) ?? 0) + result.points);
+            }
 
-            teamPointsMap.set(teamId, (teamPointsMap.get(teamId) ?? 0) + result.points);
+            const existing = driverPointsMap.get(result.driverId);
+            driverPointsMap.set(result.driverId, {
+                driverId: result.driverId,
+                driverName: result.driverName,
+                points: (existing?.points ?? 0) + result.points,
+                teamId: result.teamId,
+                teamName: result.teamName ?? existing?.teamName ?? 'Unknown Team',
+                teamCountry: result.teamCountry ?? existing?.teamCountry ?? null,
+            });
         }
     }
 
@@ -66,19 +82,21 @@ export function StandingsPage() {
         }))
         .sort((a, b) => b.computedPoints - a.computedPoints);
 
-    const driverPoints = activeDrivers.map((driver) => {
-        const points = filteredHistory.reduce((total, race) => {
-            const result = race.results.find((entry) => entry.driverId === driver.id);
-            return total + (result?.points ?? 0);
-        }, 0);
-
-        const teamId = getDriverTeamId(teamRosters, driver.id);
-        const team = teams.find((item) => item.id === teamId);
+    const driverPoints = [...driverPointsMap.values()].map((entry) => {
+        const driver = drivers.find((item) => item.id === entry.driverId);
+        const estimatedAge = driver
+            ? Math.max(16, driver.age - Math.max(0, currentSeason - selectedYear))
+            : null;
 
         return {
-            ...driver,
-            teamName: team?.name ?? 'Unknown Team',
-            points,
+            id: entry.driverId,
+            name: driver?.name ?? entry.driverName,
+            country: driver?.country ?? 'Unknown',
+            age: estimatedAge,
+            teamId: entry.teamId,
+            teamName: entry.teamName,
+            teamCountry: entry.teamCountry,
+            points: entry.points,
         };
     });
 
@@ -136,8 +154,11 @@ export function StandingsPage() {
                                     </span>
                                     <div>
                                         <div className="flex items-center gap-2">
-                                            <span>{getCountryFlag(team.country)}</span>
-                                            <span>{team.name}</span>
+                                            <TeamLink
+                                                teamId={team.id}
+                                                teamName={team.name}
+                                                country={team.country}
+                                            />
                                         </div>
                                         <div className="text-xs text-zinc-400">{team.country}</div>
                                     </div>
@@ -179,10 +200,15 @@ export function StandingsPage() {
                                             {driver.name}
                                         </Link>
                                         <div className="text-xs text-zinc-400">
-                                            {driver.country} · {driver.age}
+                                            {driver.country} · {driver.age ?? '—'}
                                         </div>
                                     </div>
-                                    <span className="text-zinc-400">{driver.teamName}</span>
+                                    <TeamLink
+                                        teamId={driver.teamId}
+                                        teamName={driver.teamName}
+                                        country={driver.teamCountry}
+                                        className="text-zinc-400 underline-offset-4 hover:text-zinc-200 hover:underline"
+                                    />
                                     <span className="text-right font-semibold">{driver.points}</span>
                                 </div>
                             );

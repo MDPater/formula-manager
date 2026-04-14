@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Card } from '../../components/ui/Card';
+import { DriverLink } from '../../components/ui/DriverLink';
 import { SectionHeader } from '../../components/ui/SectionHeader';
-import { getCountryFlag } from '../../lib/countryFlags';
 import { useGameStore } from '../../store/gameStore';
 
 type TabKey = 'championships' | 'wins' | 'podiums' | 'points' | 'starts';
@@ -129,7 +129,11 @@ export function HallOfFamePage() {
 
                             <div>
                                 <div className="text-white">
-                                    {getCountryFlag(entry.country)} {entry.name}
+                                    <DriverLink
+                                        driverId={entry.driverId}
+                                        driverName={entry.name}
+                                        country={entry.country}
+                                    />
                                     {entry.retired ? (
                                         <span className="ml-2 text-xs text-zinc-500">Retired</span>
                                     ) : null}

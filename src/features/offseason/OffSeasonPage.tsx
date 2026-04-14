@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card } from '../../components/ui/Card';
+import { DriverLink } from '../../components/ui/DriverLink';
 import { SectionHeader } from '../../components/ui/SectionHeader';
+import { TeamLink } from '../../components/ui/TeamLink';
 import { getCountryFlag } from '../../lib/countryFlags';
 import {
     getDriverDemandPrice,
@@ -265,7 +267,7 @@ export function OffSeasonPage() {
                                     .map((entry) => (
                                         <div key={entry.driverId} className="rounded-2xl bg-white/5 px-4 py-3">
                                             <div className="text-white">
-                                                {getCountryFlag(entry.country)} {entry.name}
+                                                <DriverLink driverId={entry.driverId} driverName={entry.name} country={entry.country} />
                                             </div>
                                             <div className="text-xs text-zinc-400">
                                                 Age {entry.age} · OVR {entry.overall} · {entry.reason}
@@ -286,7 +288,7 @@ export function OffSeasonPage() {
                                 {pendingIncomingDrivers.map((entry) => (
                                     <div key={entry.driverId} className="rounded-2xl bg-white/5 px-4 py-3">
                                         <div className="text-white">
-                                            {getCountryFlag(entry.country)} {entry.name}
+                                            <DriverLink driverId={entry.driverId} driverName={entry.name} country={entry.country} />
                                         </div>
                                         <div className="text-xs text-zinc-400">
                                             Age {entry.age} · OVR {entry.overall} · {entry.archetype}
@@ -346,7 +348,7 @@ export function OffSeasonPage() {
                                     >
                                         <div>
                                             <div className="text-white">
-                                                {getCountryFlag(driver.country)} {driver.name}
+                                                <DriverLink driverId={driver.id} driverName={driver.name} country={driver.country} />
                                             </div>
                                             <div className="text-xs text-zinc-400">
                                                 {driver.country} · Age {driver.age} · OVR {driver.overall}
@@ -383,7 +385,7 @@ export function OffSeasonPage() {
                                         >
                                             <div>
                                                 <div className="text-white">
-                                                    {getCountryFlag(driver.country)} {driver.name}
+                                                    <DriverLink driverId={driver.id} driverName={driver.name} country={driver.country} />
                                                 </div>
                                                 <div className="text-xs text-zinc-400">
                                                     {driver.country} · Age {driver.age} · OVR {driver.overall}
@@ -437,13 +439,19 @@ export function OffSeasonPage() {
                                         >
                                             <div>
                                                 <div className="text-white">
-                                                    {getCountryFlag(driver.country)} {driver.name}
+                                                    <DriverLink driverId={driver.id} driverName={driver.name} country={driver.country} />
                                                 </div>
                                                 <div className="text-xs text-zinc-400">
                                                     {driver.country} · Age {driver.age} · OVR {driver.overall}
                                                 </div>
                                                 <div className="text-xs text-zinc-500">
-                                                    Currently at {getCountryFlag(driver.currentTeamCountry)} {driver.currentTeamName}
+                                                    Currently at{' '}
+                                                    <TeamLink
+                                                        teamId={driver.currentTeamId}
+                                                        teamName={driver.currentTeamName}
+                                                        country={driver.currentTeamCountry}
+                                                        className="text-xs text-zinc-500 underline-offset-4 hover:text-zinc-300 hover:underline"
+                                                    />
                                                 </div>
                                             </div>
 

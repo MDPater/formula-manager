@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
+import { DriverLink } from '../../components/ui/DriverLink';
 import { Card } from '../../components/ui/Card';
 import { SectionHeader } from '../../components/ui/SectionHeader';
+import { TeamLink } from '../../components/ui/TeamLink';
 import { useGameStore } from '../../store/gameStore';
 
 function getPodiumMedal(position: number) {
@@ -127,7 +129,9 @@ export function ResultsPage() {
                                                 </div>
                                                 <div className="mt-3 flex flex-wrap gap-2">
                                                     <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-zinc-300">
-                                                        Winner: {winner ? winner.driverName : '—'}
+                                                        Winner: {winner ? (
+                                                            <DriverLink driverId={winner.driverId} driverName={winner.driverName} />
+                                                        ) : '—'}
                                                     </div>
                                                     <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-zinc-300">
                                                         Finishers: {sortedResults.length - dnfs}
@@ -149,7 +153,11 @@ export function ResultsPage() {
                                                             )}`}
                                                         >
                                                             <span>{getPodiumMedal(result.position)}</span>
-                                                            <span className="font-medium text-white">{result.driverName}</span>
+                                                            <DriverLink
+                                                                driverId={result.driverId}
+                                                                driverName={result.driverName}
+                                                                className="font-medium text-white underline-offset-4 hover:text-red-300 hover:underline"
+                                                            />
                                                             <span className="text-zinc-400">P{result.position}</span>
                                                         </div>
                                                     ))}
@@ -190,10 +198,21 @@ export function ResultsPage() {
 
                                                         <div className="min-w-0">
                                                             <div className="truncate text-sm font-medium text-white md:text-base">
-                                                                {result.driverName}
+                                                                <DriverLink
+                                                                    driverId={result.driverId}
+                                                                    driverName={result.driverName}
+                                                                    className="text-sm font-medium text-white underline-offset-4 hover:text-red-300 hover:underline md:text-base"
+                                                                />
                                                             </div>
                                                             <div className="text-xs text-zinc-400">
-                                                                {result.dnf ? 'Did not finish' : 'Classified'}
+                                                                {result.teamName ? (
+                                                                    <TeamLink
+                                                                        teamId={result.teamId}
+                                                                        teamName={result.teamName}
+                                                                        country={result.teamCountry}
+                                                                        className="underline-offset-4 hover:text-zinc-200 hover:underline"
+                                                                    />
+                                                                ) : (result.dnf ? 'Did not finish' : 'Classified')}
                                                             </div>
                                                         </div>
 
