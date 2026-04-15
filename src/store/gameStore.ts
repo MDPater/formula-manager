@@ -30,6 +30,7 @@ import {
 } from '../lib/roster';
 import { generateSeasonCalendar } from '../lib/seasonGenerator';
 import { simulateRace } from '../features/race/simulation';
+import { useCareerSetupStore } from './careerSetupStore';
 import type {
     Driver,
     Engineer,
@@ -43,6 +44,7 @@ import type {
 } from '../features/season/types';
 
 const INITIAL_SEASON_YEAR = new Date().getFullYear();
+const TEAM_BUDGET_CAP = 150000000;
 
 type CareerSetupPayload = {
     saveId: string;
@@ -103,7 +105,10 @@ type GameState = {
 };
 
 function cloneInitialWorld() {
-    const teams = structuredClone(defaultTeams);
+    const teams = structuredClone(defaultTeams).map((team) => ({
+        ...team,
+        budget: Math.min(team.budget, TEAM_BUDGET_CAP),
+    }));
     const drivers = structuredClone(defaultDrivers);
     const engineers = structuredClone(defaultEngineers);
     const pitCrewChiefs = structuredClone(defaultPitCrewChiefs);
@@ -117,6 +122,10 @@ function cloneInitialWorld() {
         providerCalendar,
         teamRosters: createDefaultTeamRosters(teams, drivers),
     };
+}
+
+function clampTeamBudget(budget: number) {
+    return Math.min(Math.max(0, budget), TEAM_BUDGET_CAP);
 }
 
 function getPrizeMoneyForPosition(position: number | null) {
@@ -665,8 +674,8 @@ export const useGameStore = create<GameState>((set, get) => {
 
             const teams = fresh.teams.map((team) =>
                 team.id === selectedTeam.id
-                    ? { ...team, budget: remainingBudget, points: 0 }
-                    : { ...team, points: 0 }
+                    ? { ...team, budget: clampTeamBudget(remainingBudget), points: 0 }
+                    : { ...team, budget: clampTeamBudget(team.budget), points: 0 }
             );
 
             const nextState: GameState = {
@@ -735,8 +744,8 @@ export const useGameStore = create<GameState>((set, get) => {
 
                 const updatedTeams = state.teams.map((team) =>
                     team.id === state.playerTeamId
-                        ? { ...team, budget: team.budget + netPrize }
-                        : team
+                        ? { ...team, budget: clampTeamBudget(team.budget + netPrize) }
+                        : { ...team, budget: clampTeamBudget(team.budget) }
                 );
 
                 const nextState = {
@@ -759,7 +768,10 @@ export const useGameStore = create<GameState>((set, get) => {
             if (!save) return;
 
             set({
-                teams: save.world.teams,
+                teams: save.world.teams.map((team) => ({
+                    ...team,
+                    budget: clampTeamBudget(team.budget),
+                })),
                 drivers: save.world.drivers,
                 engineers: save.world.engineers,
                 pitCrewChiefs: save.world.pitCrewChiefs,
@@ -807,6 +819,7 @@ export const useGameStore = create<GameState>((set, get) => {
         },
 
         exitToStartScreen: () => {
+            useCareerSetupStore.getState().reset();
             set({
                 activeSaveId: null,
                 activeSaveName: null,
@@ -995,11 +1008,6 @@ export const useGameStore = create<GameState>((set, get) => {
 
                 const latestSummary = state.seasonSummaries[state.seasonSummaries.length - 1];
 
-                const playerEngineer = state.engineers.find((item) => item.id === state.playerEngineerId) ?? null;
-                const playerChief =
-                    state.pitCrewChiefs.find((item) => item.id === state.playerPitCrewChiefId) ?? null;
-
-
                 const seasonHistory = state.history.filter(
                     (entry) => entry.seasonNumber === state.seasonNumber
                 );
@@ -1036,7 +1044,7 @@ export const useGameStore = create<GameState>((set, get) => {
                             power: base?.power ?? team.power,
                             reliability: base?.reliability ?? team.reliability,
                             points: 0,
-                            budget: team.budget,
+                            budget: clampTeamBudget(team.budget),
                         };
                     }
 
@@ -1046,6 +1054,7 @@ export const useGameStore = create<GameState>((set, get) => {
                         power: base?.power ?? team.power,
                         reliability: base?.reliability ?? team.reliability,
                         points: 0,
+                        budget: clampTeamBudget(team.budget),
                     };
                 });
 
@@ -1077,6 +1086,8 @@ export const useGameStore = create<GameState>((set, get) => {
                     seasonNumber: nextSeasonNumber,
                     isSeasonComplete: false,
                     seasonSummaries: updatedSummaries,
+                    pendingPrizeMoney: 0,
+                    offseasonReady: false,
 
                     createNewCareerFromSetup: state.createNewCareerFromSetup,
                     loadCareer: state.loadCareer,
