@@ -39,6 +39,7 @@ import type {
     SeasonSummary,
     Team,
     TeamRoster,
+    UpdatePlanMode,
 } from '../features/season/types';
 
 const INITIAL_SEASON_YEAR = new Date().getFullYear();
@@ -52,6 +53,19 @@ type CareerSetupPayload = {
     engineerId: string;
     pitCrewChiefId: string;
     seasonLength: number;
+};
+
+type UpgradePart = 'aero' | 'power' | 'reliability';
+
+type UpgradeQuote = {
+    part: UpgradePart;
+    cost: number;
+    minGain: number;
+    maxGain: number;
+    riskText: string;
+    dudChance: number;
+    setbackChance: number;
+    updatesRemainingAfterPurchase: number;
 };
 
 type GameState = {
@@ -73,6 +87,9 @@ type GameState = {
     seasonLength: number;
     isSeasonComplete: boolean;
     seasonSummaries: SeasonSummary[];
+    updatePlan: UpdatePlanMode;
+    updatesRemaining: number;
+    updatesUsedThisSeason: number;
 
     activeSaveId: string | null;
     activeSaveName: string | null;
@@ -98,7 +115,9 @@ type GameState = {
     prepareOffseason: () => void;
 
     runNextRace: () => void;
-    upgradeCar: (part: 'aero' | 'power' | 'reliability') => void;
+    setUpdatePlan: (plan: UpdatePlanMode) => { ok: boolean; message: string };
+    getUpgradeQuote: (part: UpgradePart) => UpgradeQuote | null;
+    confirmCarUpgrade: (part: UpgradePart) => { ok: boolean; message: string };
     startNextSeason: () => void;
 };
 
@@ -151,6 +170,104 @@ function getPlayerPitCrewChief(
     state: Pick<GameState, 'pitCrewChiefs' | 'playerPitCrewChiefId'>
 ) {
     return state.pitCrewChiefs.find((chief) => chief.id === state.playerPitCrewChiefId) ?? null;
+}
+
+function clamp(value: number, min: number, max: number) {
+    return Math.min(max, Math.max(min, value));
+}
+
+function getUpdateSlotsForPlan(
+    plan: UpdatePlanMode,
+    engineer: Engineer | null,
+    chief: PitCrewChief | null
+) {
+    const base = plan === 'safe' ? 3 : plan === 'medium' ? 4 : 5;
+    const staffScore =
+        (engineer?.developmentSkill ?? 70) * 0.55 +
+        (engineer?.consistency ?? 70) * 0.2 +
+        (chief?.reliabilitySkill ?? 70) * 0.15 +
+        (chief?.consistencySkill ?? 70) * 0.1;
+
+    let modifier = 0;
+    if (staffScore >= 88) modifier = 1;
+    else if (staffScore <= 68) modifier = -1;
+
+    return clamp(base + modifier, 2, 6);
+}
+
+function getFactoryQuote(
+    state: GameState,
+    part: UpgradePart,
+    team: Team,
+    engineer: Engineer | null,
+    chief: PitCrewChief | null
+): UpgradeQuote | null {
+    if (state.updatesRemaining <= 0) return null;
+
+    const baseCostByPart: Record<UpgradePart, number> = {
+        aero: 2400000,
+        power: 2700000,
+        reliability: 2100000,
+    };
+
+    const planCostMultiplier =
+        state.updatePlan === 'safe' ? 1.14 : state.updatePlan === 'medium' ? 1 : 0.9;
+    const seasonRamp = 1 + state.updatesUsedThisSeason * 0.14;
+    const engineerDiscount = clamp(((engineer?.developmentSkill ?? 70) - 70) * 0.0025, -0.04, 0.08);
+    const chiefDiscount = clamp(((chief?.consistencySkill ?? 70) - 70) * 0.0015, -0.02, 0.04);
+    const wearPressure = team.reliability < 65 ? 0.04 : 0;
+
+    const cost = Math.round(
+        baseCostByPart[part] *
+            planCostMultiplier *
+            seasonRamp *
+            (1 - engineerDiscount - chiefDiscount + wearPressure)
+    );
+
+    const baseRange =
+        state.updatePlan === 'safe'
+            ? { min: 4, max: 7 }
+            : state.updatePlan === 'medium'
+                ? { min: 3, max: 6 }
+                : { min: 2, max: 4 };
+
+    const engineerDelta = Math.round(((engineer?.developmentSkill ?? 70) - 70) / 12);
+    const chiefDelta = Math.round(((chief?.reliabilitySkill ?? 70) - 70) / 18);
+    const planReliabilityDelta = state.updatePlan === 'safe' ? 1 : state.updatePlan === 'aggressive' ? -1 : 0;
+
+    const minGain = clamp(baseRange.min + engineerDelta + planReliabilityDelta, 1, 9);
+    const maxGain = clamp(baseRange.max + engineerDelta + chiefDelta + planReliabilityDelta, minGain, 11);
+
+    const dudChance = clamp(
+        (state.updatePlan === 'aggressive' ? 0.2 : state.updatePlan === 'medium' ? 0.1 : 0.05) -
+            ((engineer?.consistency ?? 70) - 70) * 0.002,
+        0.02,
+        0.25
+    );
+    const setbackChance = clamp(
+        (state.updatePlan === 'aggressive' ? 0.09 : state.updatePlan === 'medium' ? 0.04 : 0.01) -
+            ((chief?.consistencySkill ?? 70) - 70) * 0.0015,
+        0.005,
+        0.12
+    );
+
+    const riskText =
+        state.updatePlan === 'safe'
+            ? 'Low risk, steady gains.'
+            : state.updatePlan === 'medium'
+                ? 'Balanced risk and reward.'
+                : 'High output, higher failure risk.';
+
+    return {
+        part,
+        cost,
+        minGain,
+        maxGain,
+        riskText,
+        dudChance,
+        setbackChance,
+        updatesRemainingAfterPurchase: state.updatesRemaining - 1,
+    };
 }
 
 function buildSeasonSummary(state: GameState): SeasonSummary {
@@ -258,6 +375,9 @@ function buildSaveFile(state: GameState): SaveFile | null {
             playerTeamId: state.playerTeamId,
             playerEngineerId: state.playerEngineerId,
             playerPitCrewChiefId: state.playerPitCrewChiefId,
+            updatePlan: state.updatePlan,
+            updatesRemaining: state.updatesRemaining,
+            updatesUsedThisSeason: state.updatesUsedThisSeason,
             seasonNumber: state.seasonNumber,
             seasonLength: state.seasonLength,
             isSeasonComplete: state.isSeasonComplete,
@@ -297,6 +417,9 @@ export const useGameStore = create<GameState>((set, get) => {
         seasonLength: 15,
         isSeasonComplete: false,
         seasonSummaries: [],
+        updatePlan: 'medium',
+        updatesRemaining: getUpdateSlotsForPlan('medium', null, null),
+        updatesUsedThisSeason: 0,
 
         activeSaveId: null,
         activeSaveName: null,
@@ -707,6 +830,13 @@ export const useGameStore = create<GameState>((set, get) => {
                 lastSavedAt: null,
                 pendingPrizeMoney: 0,
                 offseasonReady: false,
+                updatePlan: 'medium',
+                updatesRemaining: getUpdateSlotsForPlan(
+                    'medium',
+                    selectedEngineer,
+                    selectedPitCrewChief
+                ),
+                updatesUsedThisSeason: 0,
 
                 createNewCareerFromSetup: get().createNewCareerFromSetup,
                 loadCareer: get().loadCareer,
@@ -714,7 +844,9 @@ export const useGameStore = create<GameState>((set, get) => {
                 exportCurrentCareer: get().exportCurrentCareer,
                 exitToStartScreen: get().exitToStartScreen,
                 runNextRace: get().runNextRace,
-                upgradeCar: get().upgradeCar,
+                setUpdatePlan: get().setUpdatePlan,
+                getUpgradeQuote: get().getUpgradeQuote,
+                confirmCarUpgrade: get().confirmCarUpgrade,
                 startNextSeason: get().startNextSeason,
             };
 
@@ -780,6 +912,17 @@ export const useGameStore = create<GameState>((set, get) => {
                 playerTeamId: save.game.playerTeamId,
                 playerEngineerId: save.game.playerEngineerId,
                 playerPitCrewChiefId: save.game.playerPitCrewChiefId,
+                updatePlan: save.game.updatePlan ?? 'medium',
+                updatesRemaining:
+                    save.game.updatesRemaining ??
+                    getUpdateSlotsForPlan(
+                        save.game.updatePlan ?? 'medium',
+                        save.world.engineers.find((item) => item.id === save.game.playerEngineerId) ?? null,
+                        save.world.pitCrewChiefs.find(
+                            (item) => item.id === save.game.playerPitCrewChiefId
+                        ) ?? null
+                    ),
+                updatesUsedThisSeason: save.game.updatesUsedThisSeason ?? 0,
 
                 currentRound: save.game.currentRound,
                 history: save.game.history,
@@ -939,7 +1082,9 @@ export const useGameStore = create<GameState>((set, get) => {
                     exportCurrentCareer: state.exportCurrentCareer,
                     exitToStartScreen: state.exitToStartScreen,
                     runNextRace: state.runNextRace,
-                    upgradeCar: state.upgradeCar,
+                    setUpdatePlan: state.setUpdatePlan,
+                    getUpgradeQuote: state.getUpgradeQuote,
+                    confirmCarUpgrade: state.confirmCarUpgrade,
                     startNextSeason: state.startNextSeason,
                 };
 
@@ -951,54 +1096,99 @@ export const useGameStore = create<GameState>((set, get) => {
                 return nextState;
             }),
 
-        upgradeCar: (part) =>
-            set((state) => {
-                const playerTeam = getPlayerTeam(state);
-                const engineer = getPlayerEngineer(state);
-                const cost = 2000000;
+        setUpdatePlan: (plan) => {
+            const state = get();
+            if (state.currentRound > 0 && !state.isSeasonComplete) {
+                return { ok: false, message: 'Update plans can only be changed before round 1.' };
+            }
 
-                if (!playerTeam || playerTeam.budget < cost) return state;
+            const engineer = getPlayerEngineer(state);
+            const chief = getPlayerPitCrewChief(state);
+            const updateSlots = getUpdateSlotsForPlan(plan, engineer, chief);
 
-                const roll = Math.random();
-                let gain = 2;
-                const developmentSkill = engineer?.developmentSkill ?? 70;
+            const nextState = {
+                ...state,
+                updatePlan: plan,
+                updatesRemaining: updateSlots,
+                updatesUsedThisSeason: 0,
+            };
 
-                if (developmentSkill >= 90) gain = roll > 0.5 ? 5 : 4;
-                else if (developmentSkill >= 84) gain = roll > 0.55 ? 4 : 3;
-                else if (developmentSkill >= 76) gain = roll > 0.7 ? 3 : 2;
-                else gain = roll > 0.8 ? 2 : 1;
+            const save = persistState(nextState as GameState);
+            set({
+                updatePlan: plan,
+                updatesRemaining: updateSlots,
+                updatesUsedThisSeason: 0,
+                lastSavedAt: save?.meta.updatedAt ?? state.lastSavedAt,
+            });
 
-                const updatedTeams = state.teams.map((team) =>
-                    team.id === state.playerTeamId
-                        ? {
-                            ...team,
-                            budget: team.budget - cost,
-                            [part]: Math.min(99, team[part] + gain),
-                        }
-                        : team
-                );
+            return {
+                ok: true,
+                message: `Update plan set to ${plan}. ${updateSlots} updates available this season.`,
+            };
+        },
 
-                const nextState: GameState = {
-                    ...state,
-                    teams: updatedTeams,
+        getUpgradeQuote: (part) => {
+            const state = get();
+            const playerTeam = getPlayerTeam(state);
+            const engineer = getPlayerEngineer(state);
+            const chief = getPlayerPitCrewChief(state);
+            return getFactoryQuote(state, part, playerTeam, engineer, chief);
+        },
 
-                    createNewCareerFromSetup: state.createNewCareerFromSetup,
-                    loadCareer: state.loadCareer,
-                    saveCurrentCareer: state.saveCurrentCareer,
-                    exportCurrentCareer: state.exportCurrentCareer,
-                    exitToStartScreen: state.exitToStartScreen,
-                    runNextRace: state.runNextRace,
-                    upgradeCar: state.upgradeCar,
-                    startNextSeason: state.startNextSeason,
-                };
+        confirmCarUpgrade: (part) => {
+            const state = get();
+            const playerTeam = getPlayerTeam(state);
+            const engineer = getPlayerEngineer(state);
+            const chief = getPlayerPitCrewChief(state);
+            const quote = getFactoryQuote(state, part, playerTeam, engineer, chief);
 
-                const save = persistState(nextState);
-                if (save) {
-                    nextState.lastSavedAt = save.meta.updatedAt;
-                }
+            if (!quote) return { ok: false, message: 'No upgrades remaining for this season.' };
+            if (!playerTeam || playerTeam.budget < quote.cost) {
+                return { ok: false, message: 'Not enough budget for this update.' };
+            }
 
-                return nextState;
-            }),
+            const riskRoll = Math.random();
+            let gain = quote.minGain + Math.floor(Math.random() * (quote.maxGain - quote.minGain + 1));
+            let eventLabel = 'clean update';
+
+            if (riskRoll <= quote.setbackChance) {
+                gain = Math.max(1, gain - 2);
+                eventLabel = 'setback in testing';
+            } else if (riskRoll <= quote.setbackChance + quote.dudChance) {
+                gain = 1;
+                eventLabel = 'low-impact package';
+            }
+
+            const updatedTeams = state.teams.map((team) =>
+                team.id === state.playerTeamId
+                    ? {
+                        ...team,
+                        budget: clampTeamBudget(team.budget - quote.cost),
+                        [part]: Math.min(99, team[part] + gain),
+                    }
+                    : team
+            );
+
+            const nextState = {
+                ...state,
+                teams: updatedTeams,
+                updatesRemaining: Math.max(0, state.updatesRemaining - 1),
+                updatesUsedThisSeason: state.updatesUsedThisSeason + 1,
+            };
+
+            const save = persistState(nextState as GameState);
+            set({
+                teams: updatedTeams,
+                updatesRemaining: Math.max(0, state.updatesRemaining - 1),
+                updatesUsedThisSeason: state.updatesUsedThisSeason + 1,
+                lastSavedAt: save?.meta.updatedAt ?? state.lastSavedAt,
+            });
+
+            return {
+                ok: true,
+                message: `Factory delivered +${gain} ${part} (${eventLabel}) for $${quote.cost.toLocaleString()}.`,
+            };
+        },
 
         startNextSeason: () =>
             set((state) => {
@@ -1070,6 +1260,15 @@ export const useGameStore = create<GameState>((set, get) => {
                     nextSeasonNumber,
                     state.seasonLength
                 );
+                const playerEngineer =
+                    progressedEngineers.find((item) => item.id === state.playerEngineerId) ?? null;
+                const playerChief =
+                    progressedPitCrewChiefs.find((item) => item.id === state.playerPitCrewChiefId) ?? null;
+                const nextSeasonUpdates = getUpdateSlotsForPlan(
+                    state.updatePlan,
+                    playerEngineer,
+                    playerChief
+                );
 
                 const nextState: GameState = {
                     ...state,
@@ -1086,6 +1285,8 @@ export const useGameStore = create<GameState>((set, get) => {
                     seasonSummaries: updatedSummaries,
                     pendingPrizeMoney: 0,
                     offseasonReady: false,
+                    updatesRemaining: nextSeasonUpdates,
+                    updatesUsedThisSeason: 0,
 
                     createNewCareerFromSetup: state.createNewCareerFromSetup,
                     loadCareer: state.loadCareer,
@@ -1093,7 +1294,9 @@ export const useGameStore = create<GameState>((set, get) => {
                     exportCurrentCareer: state.exportCurrentCareer,
                     exitToStartScreen: state.exitToStartScreen,
                     runNextRace: state.runNextRace,
-                    upgradeCar: state.upgradeCar,
+                    setUpdatePlan: state.setUpdatePlan,
+                    getUpgradeQuote: state.getUpgradeQuote,
+                    confirmCarUpgrade: state.confirmCarUpgrade,
                     startNextSeason: state.startNextSeason,
                 };
 

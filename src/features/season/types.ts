@@ -46,6 +46,8 @@ export type PitCrewChief = {
     consistencySkill: number;
 };
 
+export type UpdatePlanMode = 'safe' | 'medium' | 'aggressive';
+
 export type Race = {
     id: string;
     name: string;
@@ -156,6 +158,9 @@ export type SaveFile = {
         playerTeamId: string;
         playerEngineerId: string | null;
         playerPitCrewChiefId: string | null;
+        updatePlan: UpdatePlanMode;
+        updatesRemaining: number;
+        updatesUsedThisSeason: number;
         seasonNumber: number;
         seasonLength: number;
         isSeasonComplete: boolean;
