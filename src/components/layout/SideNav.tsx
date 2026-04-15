@@ -9,6 +9,7 @@ const links = [
     { to: '/standings', label: 'Standings' },
     { to: '/results', label: 'Results' },
     { to: '/market', label: 'Market' },
+    { to: '/hall-of-fame', label: 'Hall of Fame' },
 ];
 
 

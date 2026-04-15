@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Card } from '../../components/ui/Card';
+import { DriverLink } from '../../components/ui/DriverLink';
 import { SectionHeader } from '../../components/ui/SectionHeader';
 import { StatCard } from '../../components/ui/StatCard';
 import { getActiveDrivers, getDriverTeamId, getTeamDrivers } from '../../lib/roster';
@@ -245,7 +246,11 @@ export function DashboardPage() {
                                     >
                                         <div className="flex items-center gap-3">
                                             {medal ? <span className="text-lg">{medal}</span> : null}
-                                            <span className="text-sm text-zinc-300">{result.driverName}</span>
+                                            <DriverLink
+                                                driverId={result.driverId}
+                                                driverName={result.driverName}
+                                                className="text-sm text-zinc-300 underline-offset-4 hover:text-zinc-100 hover:underline"
+                                            />
                                         </div>
 
                                         <span className="text-sm font-medium text-white">

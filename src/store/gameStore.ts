@@ -9,6 +9,15 @@ import {
     applyOffseasonDriverChanges,
     previewOffseasonDriverChanges,
 } from '../lib/offseason';
+import {
+    getAiUpgradeableTeams,
+    getDriverDemandPrice,
+    getEngineerDemandPrice,
+    getFreeAgentDrivers,
+    getOpenSeatTeams,
+    getPitCrewChiefDemandPrice,
+    scoreDriverForTeam,
+} from '../lib/offseasonMarket';
 import { downloadJson, readBrowserSave, writeBrowserSave } from '../lib/persistence';
 import {
     buildFreshRostersFromSetup,
@@ -19,6 +28,7 @@ import {
 } from '../lib/roster';
 import { generateSeasonCalendar } from '../lib/seasonGenerator';
 import { simulateRace } from '../features/race/simulation';
+import { useCareerSetupStore } from './careerSetupStore';
 import type {
     Driver,
     Engineer,
@@ -32,6 +42,7 @@ import type {
 } from '../features/season/types';
 
 const INITIAL_SEASON_YEAR = new Date().getFullYear();
+const TEAM_BUDGET_CAP = 150000000;
 
 type CareerSetupPayload = {
     saveId: string;
@@ -73,6 +84,18 @@ type GameState = {
     saveCurrentCareer: () => void;
     exportCurrentCareer: () => void;
     exitToStartScreen: () => void;
+    signDriverForPlayer: (driverId: string) => { ok: boolean; message: string };
+    hireEngineerForPlayer: (engineerId: string) => { ok: boolean; message: string };
+    hirePitCrewChiefForPlayer: (chiefId: string) => { ok: boolean; message: string };
+    resolveAiOffseasonMoves: () => void;
+    replacePlayerDriver: (
+        outDriverId: string,
+        inDriverId: string
+    ) => { ok: boolean; message: string };
+
+    pendingPrizeMoney: number;
+    offseasonReady: boolean;
+    prepareOffseason: () => void;
 
     runNextRace: () => void;
     upgradeCar: (part: 'aero' | 'power' | 'reliability') => void;
@@ -80,7 +103,10 @@ type GameState = {
 };
 
 function cloneInitialWorld() {
-    const teams = structuredClone(defaultTeams);
+    const teams = structuredClone(defaultTeams).map((team) => ({
+        ...team,
+        budget: Math.min(team.budget, TEAM_BUDGET_CAP),
+    }));
     const drivers = structuredClone(defaultDrivers);
     const engineers = structuredClone(defaultEngineers);
     const pitCrewChiefs = structuredClone(defaultPitCrewChiefs);
@@ -94,6 +120,23 @@ function cloneInitialWorld() {
         providerCalendar,
         teamRosters: createDefaultTeamRosters(teams, drivers),
     };
+}
+
+function clampTeamBudget(budget: number) {
+    return Math.min(Math.max(0, budget), TEAM_BUDGET_CAP);
+}
+
+function getPrizeMoneyForPosition(position: number | null) {
+    if (position === 1) return 45000000;
+    if (position === 2) return 36000000;
+    if (position === 3) return 30000000;
+    if (position === 4) return 24000000;
+    if (position === 5) return 20000000;
+    if (position === 6) return 16000000;
+    if (position === 7) return 12000000;
+    if (position === 8) return 9000000;
+    if (position === 9) return 7000000;
+    return 5000000;
 }
 
 function getPlayerTeam(state: Pick<GameState, 'teams' | 'playerTeamId'>) {
@@ -259,8 +302,346 @@ export const useGameStore = create<GameState>((set, get) => {
         activeSaveName: null,
         hasLoadedCareer: false,
         lastSavedAt: null,
+        pendingPrizeMoney: 0,
+        offseasonReady: false,
+
+        replacePlayerDriver: (outDriverId, inDriverId) => {
+            const state = get();
+
+            if (!state.isSeasonComplete) {
+                return { ok: false, message: 'Driver moves are only available in the offseason.' };
+            }
+
+            const playerTeam = state.teams.find((team) => team.id === state.playerTeamId);
+            const incomingDriver = state.drivers.find((driver) => driver.id === inDriverId);
+
+            if (!playerTeam || !incomingDriver) {
+                return { ok: false, message: 'Driver or player team not found.' };
+            }
+
+            const playerRoster = [...(state.teamRosters[state.playerTeamId] ?? [])];
+
+            if (!playerRoster.includes(outDriverId)) {
+                return { ok: false, message: 'The outgoing driver is not in your team.' };
+            }
+
+            if (playerRoster.includes(inDriverId)) {
+                return { ok: false, message: 'That driver is already in your team.' };
+            }
+
+            const currentTeamId = getDriverTeamId(state.teamRosters, incomingDriver.id);
+            const price = getDriverDemandPrice(incomingDriver, Boolean(currentTeamId));
+
+            if (playerTeam.budget < price) {
+                return { ok: false, message: 'Not enough budget.' };
+            }
+
+            const updatedRosters: TeamRoster = Object.fromEntries(
+                Object.entries(state.teamRosters).map(([teamId, ids]) => [teamId, [...ids]])
+            );
+
+            updatedRosters[state.playerTeamId] = updatedRosters[state.playerTeamId].filter(
+                (id) => id !== outDriverId
+            );
+
+            if (currentTeamId) {
+                updatedRosters[currentTeamId] = updatedRosters[currentTeamId].filter(
+                    (id) => id !== incomingDriver.id
+                );
+            }
+
+            updatedRosters[state.playerTeamId].push(incomingDriver.id);
+
+            const updatedTeams = state.teams.map((team) => {
+                if (team.id === state.playerTeamId) {
+                    return { ...team, budget: team.budget - price };
+                }
+
+                if (team.id === currentTeamId) {
+                    return { ...team, budget: team.budget + Math.round(price * 0.75) };
+                }
+
+                return team;
+            });
+
+            const nextState = {
+                ...state,
+                teams: updatedTeams,
+                teamRosters: updatedRosters,
+            };
+
+            const save = persistState(nextState as any);
+
+            set({
+                teams: updatedTeams,
+                teamRosters: updatedRosters,
+                lastSavedAt: save?.meta.updatedAt ?? state.lastSavedAt,
+            });
+
+            return {
+                ok: true,
+                message: `Replaced driver and signed ${incomingDriver.name} for $${price.toLocaleString()}.`,
+            };
+        },
+
+        signDriverForPlayer: (driverId) => {
+            const state = get();
+            if (!state.isSeasonComplete) {
+                return { ok: false, message: 'Driver moves are only available in the offseason.' };
+            }
+
+            const playerTeam = state.teams.find((team) => team.id === state.playerTeamId);
+            const driver = state.drivers.find((item) => item.id === driverId);
+
+            if (!playerTeam || !driver) {
+                return { ok: false, message: 'Driver or player team not found.' };
+            }
+
+            const currentTeamId = getDriverTeamId(state.teamRosters, driver.id);
+            const alreadyPlayerDriver = currentTeamId === state.playerTeamId;
+
+            if (alreadyPlayerDriver) {
+                return { ok: false, message: 'That driver is already in your team.' };
+            }
+
+            const price = getDriverDemandPrice(driver, Boolean(currentTeamId));
+            if (playerTeam.budget < price) {
+                return { ok: false, message: 'Not enough budget.' };
+            }
+
+            const playerRoster = [...(state.teamRosters[state.playerTeamId] ?? [])];
+            if (playerRoster.length >= 2) {
+                return { ok: false, message: 'Your team already has two drivers.' };
+            }
+
+            const updatedRosters = Object.fromEntries(
+                Object.entries(state.teamRosters).map(([teamId, ids]) => [teamId, [...ids]])
+            );
+
+            if (currentTeamId) {
+                updatedRosters[currentTeamId] = updatedRosters[currentTeamId].filter((id) => id !== driver.id);
+            }
+
+            updatedRosters[state.playerTeamId] = [...playerRoster, driver.id];
+
+            const updatedTeams = state.teams.map((team) => {
+                if (team.id === state.playerTeamId) {
+                    return { ...team, budget: team.budget - price };
+                }
+                if (team.id === currentTeamId) {
+                    return { ...team, budget: team.budget + Math.round(price * 0.75) };
+                }
+                return team;
+            });
+
+            const nextState = {
+                ...state,
+                teams: updatedTeams,
+                teamRosters: updatedRosters,
+            };
+
+            const save = persistState(nextState as any);
+            set({
+                teams: updatedTeams,
+                teamRosters: updatedRosters,
+                lastSavedAt: save?.meta.updatedAt ?? state.lastSavedAt,
+            });
+
+            return { ok: true, message: `Signed ${driver.name} for $${price.toLocaleString()}.` };
+        },
+
+        hireEngineerForPlayer: (engineerId) => {
+            const state = get();
+            if (!state.isSeasonComplete) {
+                return { ok: false, message: 'Staff changes are only available in the offseason.' };
+            }
+
+            const playerTeam = state.teams.find((team) => team.id === state.playerTeamId);
+            const engineer = state.engineers.find((item) => item.id === engineerId);
+
+            if (!playerTeam || !engineer) {
+                return { ok: false, message: 'Engineer or player team not found.' };
+            }
+
+            const price = getEngineerDemandPrice(engineer);
+            if (playerTeam.budget < price) {
+                return { ok: false, message: 'Not enough budget.' };
+            }
+
+            const updatedTeams = state.teams.map((team) =>
+                team.id === state.playerTeamId ? { ...team, budget: team.budget - price } : team
+            );
+
+            const nextState = {
+                ...state,
+                teams: updatedTeams,
+                playerEngineerId: engineer.id,
+            };
+
+            const save = persistState(nextState as any);
+            set({
+                teams: updatedTeams,
+                playerEngineerId: engineer.id,
+                lastSavedAt: save?.meta.updatedAt ?? state.lastSavedAt,
+            });
+
+            return { ok: true, message: `Hired ${engineer.name}.` };
+        },
+
+        hirePitCrewChiefForPlayer: (chiefId) => {
+            const state = get();
+            if (!state.isSeasonComplete) {
+                return { ok: false, message: 'Staff changes are only available in the offseason.' };
+            }
+
+            const playerTeam = state.teams.find((team) => team.id === state.playerTeamId);
+            const chief = state.pitCrewChiefs.find((item) => item.id === chiefId);
+
+            if (!playerTeam || !chief) {
+                return { ok: false, message: 'Pit crew chief or player team not found.' };
+            }
+
+            const price = getPitCrewChiefDemandPrice(chief);
+            if (playerTeam.budget < price) {
+                return { ok: false, message: 'Not enough budget.' };
+            }
+
+            const updatedTeams = state.teams.map((team) =>
+                team.id === state.playerTeamId ? { ...team, budget: team.budget - price } : team
+            );
+
+            const nextState = {
+                ...state,
+                teams: updatedTeams,
+                playerPitCrewChiefId: chief.id,
+            };
+
+            const save = persistState(nextState as any);
+            set({
+                teams: updatedTeams,
+                playerPitCrewChiefId: chief.id,
+                lastSavedAt: save?.meta.updatedAt ?? state.lastSavedAt,
+            });
+
+            return { ok: true, message: `Hired ${chief.name}.` };
+        },
+
+        resolveAiOffseasonMoves: () =>
+            set((state) => {
+                if (!state.isSeasonComplete) return state;
+
+                const updatedRosters: TeamRoster = Object.fromEntries(
+                    Object.entries(state.teamRosters).map(([teamId, ids]) => [teamId, [...ids]])
+                );
+                let updatedTeams = [...state.teams];
+
+                const activeDriverPool = state.drivers.filter((driver) => !driver.retired);
+
+                // Step 1: fill open seats from free agents first
+                let freeAgents = [...getFreeAgentDrivers(activeDriverPool, updatedRosters)];
+                const openSeatTeams = getOpenSeatTeams(updatedTeams, updatedRosters, state.playerTeamId);
+
+                const sortedOpenSeatTeams = [...openSeatTeams].sort((a, b) => {
+                    const aScore = (a.aero + a.power + a.reliability) / 3 + a.budget / 1000000;
+                    const bScore = (b.aero + b.power + b.reliability) / 3 + b.budget / 1000000;
+                    return bScore - aScore;
+                });
+
+                for (const team of sortedOpenSeatTeams) {
+                    while ((updatedRosters[team.id] ?? []).length < 2) {
+                        if (freeAgents.length === 0) break;
+
+                        const sortedCandidates = [...freeAgents].sort(
+                            (a, b) => scoreDriverForTeam(b, team) - scoreDriverForTeam(a, team)
+                        );
+
+                        const best = sortedCandidates[0];
+                        if (!best) break;
+
+                        updatedRosters[team.id] = [...(updatedRosters[team.id] ?? []), best.id];
+
+                        const index = freeAgents.findIndex((item) => item.id === best.id);
+                        if (index >= 0) freeAgents.splice(index, 1);
+                    }
+                }
+
+                // Step 2: AI top/midfield teams may upgrade weakest driver by poaching
+                const upgradeableTeams = getAiUpgradeableTeams(updatedTeams, updatedRosters, state.playerTeamId);
+
+                for (const team of upgradeableTeams) {
+                    const currentDriverIds = updatedRosters[team.id] ?? [];
+                    const currentDrivers = currentDriverIds
+                        .map((id) => activeDriverPool.find((driver) => driver.id === id))
+                        .filter((driver): driver is NonNullable<typeof driver> => Boolean(driver));
+
+                    if (currentDrivers.length < 2) continue;
+
+                    const weakestDriver = [...currentDrivers].sort((a, b) => a.overall - b.overall)[0];
+                    if (!weakestDriver) continue;
+
+                    const currentWeakScore = scoreDriverForTeam(weakestDriver, team);
+
+                    const externalCandidates = activeDriverPool.filter((driver) => {
+                        const teamId = getDriverTeamId(updatedRosters, driver.id);
+                        if (!teamId) return true;
+                        if (teamId === team.id) return false;
+                        if (teamId === state.playerTeamId) return false;
+                        return true;
+                    });
+
+                    const sortedCandidates = [...externalCandidates].sort(
+                        (a, b) => scoreDriverForTeam(b, team) - scoreDriverForTeam(a, team)
+                    );
+
+                    const target = sortedCandidates.find((candidate) => {
+                        const price = getDriverDemandPrice(
+                            candidate,
+                            Boolean(getDriverTeamId(updatedRosters, candidate.id))
+                        );
+                        const candidateScore = scoreDriverForTeam(candidate, team);
+                        return candidateScore >= currentWeakScore + 8 && team.budget >= price;
+                    });
+
+                    if (!target) continue;
+
+                    const sellerTeamId = getDriverTeamId(updatedRosters, target.id);
+                    const price = getDriverDemandPrice(target, Boolean(sellerTeamId));
+
+                    updatedRosters[team.id] = updatedRosters[team.id].filter((id) => id !== weakestDriver.id);
+                    updatedRosters[team.id].push(target.id);
+
+                    if (sellerTeamId) {
+                        updatedRosters[sellerTeamId] = updatedRosters[sellerTeamId].filter((id) => id !== target.id);
+                        updatedRosters[sellerTeamId].push(weakestDriver.id);
+                    }
+
+                    updatedTeams = updatedTeams.map((entry) => {
+                        if (entry.id === team.id) {
+                            return { ...entry, budget: Math.max(0, entry.budget - price) };
+                        }
+                        if (sellerTeamId && entry.id === sellerTeamId) {
+                            return { ...entry, budget: entry.budget + Math.round(price * 0.75) };
+                        }
+                        return entry;
+                    });
+                }
+
+                const nextState = {
+                    ...state,
+                    teamRosters: updatedRosters,
+                    teams: updatedTeams,
+                };
+
+                const save = persistState(nextState as any);
+
+                return {
+                    ...nextState,
+                    lastSavedAt: save?.meta.updatedAt ?? state.lastSavedAt,
+                };
+            }),
 
         createNewCareerFromSetup: (payload) => {
+
             const fresh = cloneInitialWorld();
 
             const selectedTeam = fresh.teams.find((team) => team.id === payload.teamId) ?? fresh.teams[0];
@@ -291,8 +672,8 @@ export const useGameStore = create<GameState>((set, get) => {
 
             const teams = fresh.teams.map((team) =>
                 team.id === selectedTeam.id
-                    ? { ...team, budget: remainingBudget, points: 0 }
-                    : { ...team, points: 0 }
+                    ? { ...team, budget: clampTeamBudget(remainingBudget), points: 0 }
+                    : { ...team, budget: clampTeamBudget(team.budget), points: 0 }
             );
 
             const nextState: GameState = {
@@ -324,6 +705,8 @@ export const useGameStore = create<GameState>((set, get) => {
                 activeSaveName: payload.saveName,
                 hasLoadedCareer: true,
                 lastSavedAt: null,
+                pendingPrizeMoney: 0,
+                offseasonReady: false,
 
                 createNewCareerFromSetup: get().createNewCareerFromSetup,
                 loadCareer: get().loadCareer,
@@ -343,12 +726,50 @@ export const useGameStore = create<GameState>((set, get) => {
             });
         },
 
+        prepareOffseason: () =>
+            set((state) => {
+                if (!state.isSeasonComplete || state.offseasonReady) return state;
+
+                const latestSummary = state.seasonSummaries[state.seasonSummaries.length - 1];
+                const playerEngineer =
+                    state.engineers.find((item) => item.id === state.playerEngineerId) ?? null;
+                const playerChief =
+                    state.pitCrewChiefs.find((item) => item.id === state.playerPitCrewChiefId) ?? null;
+
+                const prizeMoney = getPrizeMoneyForPosition(latestSummary?.playerTeamPosition ?? null);
+                const staffCost = (playerEngineer?.salary ?? 0) + (playerChief?.salary ?? 0);
+                const netPrize = Math.max(0, prizeMoney - staffCost);
+
+                const updatedTeams = state.teams.map((team) =>
+                    team.id === state.playerTeamId
+                        ? { ...team, budget: clampTeamBudget(team.budget + netPrize) }
+                        : { ...team, budget: clampTeamBudget(team.budget) }
+                );
+
+                const nextState = {
+                    ...state,
+                    teams: updatedTeams,
+                    pendingPrizeMoney: netPrize,
+                    offseasonReady: true,
+                };
+
+                const save = persistState(nextState as any);
+
+                return {
+                    ...nextState,
+                    lastSavedAt: save?.meta.updatedAt ?? state.lastSavedAt,
+                };
+            }),
+
         loadCareer: (saveId) => {
             const save = readBrowserSave(saveId);
             if (!save) return;
 
             set({
-                teams: save.world.teams,
+                teams: save.world.teams.map((team) => ({
+                    ...team,
+                    budget: clampTeamBudget(team.budget),
+                })),
                 drivers: save.world.drivers,
                 engineers: save.world.engineers,
                 pitCrewChiefs: save.world.pitCrewChiefs,
@@ -371,6 +792,8 @@ export const useGameStore = create<GameState>((set, get) => {
                 activeSaveName: save.meta.saveName,
                 hasLoadedCareer: true,
                 lastSavedAt: save.meta.updatedAt,
+                pendingPrizeMoney: 0,
+                offseasonReady: false,
             });
         },
 
@@ -394,6 +817,7 @@ export const useGameStore = create<GameState>((set, get) => {
         },
 
         exitToStartScreen: () => {
+            useCareerSetupStore.getState().reset();
             set({
                 activeSaveId: null,
                 activeSaveName: null,
@@ -436,7 +860,6 @@ export const useGameStore = create<GameState>((set, get) => {
                         return {
                             ...team,
                             points: team.points + earnedPoints,
-                            budget: team.budget + 1500000 + earnedPoints * 50000,
                         };
                     }
 
@@ -582,6 +1005,7 @@ export const useGameStore = create<GameState>((set, get) => {
                 if (!state.isSeasonComplete) return state;
 
                 const latestSummary = state.seasonSummaries[state.seasonSummaries.length - 1];
+
                 const seasonHistory = state.history.filter(
                     (entry) => entry.seasonNumber === state.seasonNumber
                 );
@@ -602,7 +1026,8 @@ export const useGameStore = create<GameState>((set, get) => {
                     progressionResult.drivers,
                     state.teamRosters,
                     latestSummary?.retirements ?? [],
-                    latestSummary?.newDrivers ?? []
+                    latestSummary?.newDrivers ?? [],
+                    state.seasonNumber
                 );
 
                 const baseTeamsById = new Map(defaultTeams.map((team) => [team.id, team]));
@@ -610,12 +1035,24 @@ export const useGameStore = create<GameState>((set, get) => {
                 const resetTeams = state.teams.map((team) => {
                     const base = baseTeamsById.get(team.id);
 
+                    if (team.id === state.playerTeamId) {
+                        return {
+                            ...team,
+                            aero: base?.aero ?? team.aero,
+                            power: base?.power ?? team.power,
+                            reliability: base?.reliability ?? team.reliability,
+                            points: 0,
+                            budget: clampTeamBudget(team.budget),
+                        };
+                    }
+
                     return {
                         ...team,
                         aero: base?.aero ?? team.aero,
                         power: base?.power ?? team.power,
                         reliability: base?.reliability ?? team.reliability,
                         points: 0,
+                        budget: clampTeamBudget(team.budget),
                     };
                 });
 
@@ -647,6 +1084,8 @@ export const useGameStore = create<GameState>((set, get) => {
                     seasonNumber: nextSeasonNumber,
                     isSeasonComplete: false,
                     seasonSummaries: updatedSummaries,
+                    pendingPrizeMoney: 0,
+                    offseasonReady: false,
 
                     createNewCareerFromSetup: state.createNewCareerFromSetup,
                     loadCareer: state.loadCareer,

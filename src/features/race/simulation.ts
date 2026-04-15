@@ -34,16 +34,22 @@ export function simulateRace(
             const aero = team?.aero ?? 70;
             const power = team?.power ?? 70;
             const reliability = team?.reliability ?? 70;
+            const carPerformance = aero * 0.55 + power * 0.45;
+            const driverPerformance =
+                driver.overall * 0.55 +
+                driver.racecraft * 0.3 +
+                driver.consistency * 0.15;
+
 
             const trackBonus =
                 race?.trackBias === 'aero'
-                    ? aero * 0.5
+                    ? aero * 0.55
                     : race?.trackBias === 'power'
-                        ? power * 0.5
-                        : (aero + power) * 0.25;
+                        ? power * 0.55
+                        : (aero + power) * 0.275;
 
             const weatherBonus =
-                race?.weather === 'wet' ? driver.wetSkill * 0.2 : driver.consistency * 0.1;
+                race?.weather === 'wet' ? driver.wetSkill * 0.22 : driver.consistency * 0.12;
 
             let dnfChance = Math.max(
                 0.03,
@@ -69,8 +75,8 @@ export function simulateRace(
                 driverName: driver.name,
                 score: dnf
                     ? -999
-                    : driver.overall +
-                    driver.racecraft * 0.35 +
+                    : carPerformance * 0.7 +
+                    driverPerformance * 0.65 +
                     trackBonus +
                     weatherBonus +
                     randomRange(varianceMin, varianceMax),

@@ -98,7 +98,21 @@ function getSeasonStats(history: RaceHistoryEntry[], driverId: string) {
 function shouldRetire(driver: Driver, history: RaceHistoryEntry[]) {
     const stats = getSeasonStats(history, driver.id);
 
-    if (driver.age >= 37 && driver.overall <= 80) {
+    if (driver.age >= 40) {
+        return {
+            retire: true,
+            reason: 'End of career',
+        };
+    }
+
+    if (driver.age >= 38 && Math.random() > 0.3) {
+        return {
+            retire: true,
+            reason: 'Age and long career',
+        };
+    }
+
+    if (driver.age >= 37 && driver.overall <= 82 && Math.random() > 0.4) {
         return {
             retire: true,
             reason: 'Age and declining pace',
@@ -185,6 +199,8 @@ function createGeneratedDriver(existingDrivers: Driver[]): {
         consistency,
         wetSkill,
         marketValue,
+        retired: false,
+        retiredSeason: null,
     };
 
     return {
@@ -209,7 +225,7 @@ export function previewOffseasonDriverChanges(
     newDrivers: NewDriverRecord[];
 } {
     const activeIds = new Set(Object.values(teamRosters).flat());
-    const activeDrivers = drivers.filter((driver) => activeIds.has(driver.id));
+    const activeDrivers = drivers.filter((driver) => activeIds.has(driver.id) && !driver.retired);
 
     const retirements: RetirementRecord[] = [];
     const newDrivers: NewDriverRecord[] = [];
@@ -231,8 +247,6 @@ export function previewOffseasonDriverChanges(
             teamId,
         });
 
-        tempDrivers = tempDrivers.filter((item) => item.id !== driver.id);
-
         const generated = createGeneratedDriver(tempDrivers);
         tempDrivers = [...tempDrivers, generated.driver];
 
@@ -252,7 +266,8 @@ export function applyOffseasonDriverChanges(
     drivers: Driver[],
     teamRosters: TeamRoster,
     retirements: RetirementRecord[],
-    newDrivers: NewDriverRecord[]
+    newDrivers: NewDriverRecord[],
+    retiredSeason: number
 ): {
     drivers: Driver[];
     teamRosters: TeamRoster;
@@ -263,7 +278,16 @@ export function applyOffseasonDriverChanges(
     );
 
     for (const retirement of retirements) {
-        updatedDrivers = updatedDrivers.filter((driver) => driver.id !== retirement.driverId);
+        updatedDrivers = updatedDrivers.map((driver) =>
+            driver.id === retirement.driverId
+                ? {
+                    ...driver,
+                    retired: true,
+                    retiredSeason,
+                    marketValue: Math.max(1000000, Math.round(driver.marketValue * 0.45)),
+                }
+                : driver
+        );
 
         if (retirement.teamId) {
             updatedRosters[retirement.teamId] = (updatedRosters[retirement.teamId] ?? []).filter(
@@ -284,6 +308,8 @@ export function applyOffseasonDriverChanges(
             consistency: Math.max(60, Math.min(99, entry.overall + Math.floor(Math.random() * 5) - 2)),
             wetSkill: Math.max(60, Math.min(99, entry.overall + Math.floor(Math.random() * 5) - 2)),
             marketValue: Math.max(1500000, entry.overall * 250000),
+            retired: false,
+            retiredSeason: null,
         };
 
         updatedDrivers.push(generatedDriver);

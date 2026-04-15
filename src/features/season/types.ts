@@ -9,6 +9,8 @@ export type Driver = {
     consistency: number;
     wetSkill: number;
     marketValue: number;
+    retired?: boolean;
+    retiredSeason?: number | null;
 };
 
 export type Team = {
