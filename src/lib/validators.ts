@@ -104,21 +104,6 @@ export function parseCustomDatabaseFile(value: unknown): CustomDatabaseFile {
     }
 
     const teamIds = new Set(teams.map((team) => team.id));
-    const driverIds = new Set(drivers.map((driver) => driver.id));
-
-    for (const driver of drivers) {
-        if (!teamIds.has(driver.teamId)) {
-            throw new Error(`Driver "${driver.name}" references a missing team.`);
-        }
-    }
-
-    for (const team of teams) {
-        for (const driverId of team.drivers) {
-            if (!driverIds.has(driverId)) {
-                throw new Error(`Team "${team.name}" references a missing driver ID.`);
-            }
-        }
-    }
 
     const playerTeamId =
         typeof value.playerTeamId === 'string' ? value.playerTeamId : teams[0].id;
