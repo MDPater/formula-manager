@@ -1,73 +1,60 @@
-# React + TypeScript + Vite
+#  Formula Manager
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A **Formula 1–inspired team management web app** where you build and manage your own racing team across full seasons.
 
-Currently, two official plugins are available:
+👉 Play: https://formula-team-manager.vercel.app/   
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+---
 
-## React Compiler
+## Overview
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Formula Manager is a browser-based simulation game.  
+Manage drivers, staff, budget, and car development while competing in full racing seasons.
 
-## Expanding the ESLint configuration
+---
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## Features
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+-  Simulate **10 / 15 / 20 race seasons**
+-  Manage drivers, engineers, and pit crew chiefs
+-  Budget system with prize money and staff costs
+-  Upgrade your car (aero, power, reliability)
+-  AI teams with offseason transfers and upgrades
+-  Season summaries, progression, retirements, and new drivers
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+---
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+##  Custom Database
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+- Upload your own **custom JSON database**
+- Modify teams, drivers, and staff
+- Download a **template format directly from the app**
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+---
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+##  Save System
+
+- Save careers locally in the browser  
+- Export your save as a **JSON file**  
+- Import and continue anytime  
+
+---
+
+##  Tech Stack
+
+- React + TypeScript  
+- Zustand (state management)  
+- Vercel (deployment)  
+
+---
+
+⚠️ Disclaimer
+
+This project is inspired by Formula 1, but is not affiliated with or endorsed by any official Formula 1 organization. All trademarks belong to their respective owners.
+
+
+If you like the project:
+
+⭐ Star the repo
+🐛 Report issues
+💡 Suggest features
