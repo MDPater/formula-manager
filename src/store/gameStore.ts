@@ -17,8 +17,6 @@ import {
     getOpenSeatTeams,
     getPitCrewChiefDemandPrice,
     scoreDriverForTeam,
-    scoreEngineerForTeam,
-    scorePitCrewChiefForTeam,
 } from '../lib/offseasonMarket';
 import { downloadJson, readBrowserSave, writeBrowserSave } from '../lib/persistence';
 import {

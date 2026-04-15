@@ -15,6 +15,39 @@ function getPodiumMedal(position: number) {
     return null;
 }
 
+type DriverRaceEntry = {
+    seasonNumber: number;
+    roundNumber: number;
+    raceName: string;
+    flag: string;
+    country: string;
+    result: {
+        driverId: string;
+        driverName: string;
+        teamId: string | null;
+        teamName: string | null;
+        teamCountry: string | null;
+        position: number;
+        points: number;
+        dnf: boolean;
+    };
+};
+
+type CareerStint = {
+    startSeason: number;
+    endSeason: number;
+    teamId: string | null;
+    teamName: string;
+    teamCountry: string | null;
+    seasons: number[];
+    races: number;
+    points: number;
+    wins: number;
+    podiums: number;
+    dnfs: number;
+    championships: number[];
+};
+
 export function DriverDetailPage() {
     const { driverId } = useParams();
     const drivers = useGameStore((state) => state.drivers);
@@ -49,52 +82,63 @@ export function DriverDetailPage() {
 
     const currentTeamId = getDriverTeamId(teamRosters, driver.id);
 
-    const availableYears = useMemo(() => {
-        const years = Array.from(new Set(history.map((race) => race.seasonNumber))).sort(
-            (a, b) => b - a
-        );
+    const allDriverRaceEntries = useMemo<DriverRaceEntry[]>(() => {
+        return history
+            .map((race) => {
+                const result = race.results.find((entry) => entry.driverId === driver.id);
+                if (!result) return null;
 
-        if (!years.includes(currentSeason)) {
-            years.unshift(currentSeason);
+                const raceData = calendar.find((item) => item.name === race.raceName);
+
+                return {
+                    seasonNumber: race.seasonNumber,
+                    roundNumber: race.roundNumber,
+                    raceName: race.raceName,
+                    flag: raceData?.flag ?? '🏁',
+                    country: raceData?.country ?? 'Unknown',
+                    result,
+                };
+            })
+            .filter((entry): entry is DriverRaceEntry => entry !== null);
+    }, [history, calendar, driver.id]);
+
+    const activeSeasons = useMemo(() => {
+        const seasons = Array.from(
+            new Set(allDriverRaceEntries.map((entry) => entry.seasonNumber))
+        ).sort((a, b) => b - a);
+
+        // Include current season if the driver currently has a team but no race history yet for that season
+        if (currentTeamId && !seasons.includes(currentSeason)) {
+            seasons.unshift(currentSeason);
         }
 
-        return years;
-    }, [history, currentSeason]);
+        return seasons;
+    }, [allDriverRaceEntries, currentSeason, currentTeamId]);
 
-    const filteredHistory = history.filter((race) =>
-        selectedYear === 'all' ? true : race.seasonNumber === selectedYear
+    const availableYears = activeSeasons;
+
+    const championshipYears = useMemo(() => {
+        return seasonSummaries
+            .filter((summary) => summary.championDriverId === driver.id)
+            .map((summary) => summary.seasonNumber)
+            .sort((a, b) => a - b);
+    }, [seasonSummaries, driver.id]);
+
+    const filteredRaceEntries = allDriverRaceEntries.filter((entry) =>
+        selectedYear === 'all' ? true : entry.seasonNumber === selectedYear
     );
 
-    // Only keep races the driver actually participated in
-    const raceEntries = filteredHistory
-        .map((race) => {
-            const result = race.results.find((entry) => entry.driverId === driver.id);
-            if (!result) return null;
-
-            const raceData = calendar.find((item) => item.name === race.raceName);
-
-            return {
-                seasonNumber: race.seasonNumber,
-                roundNumber: race.roundNumber,
-                raceName: race.raceName,
-                flag: raceData?.flag ?? '🏁',
-                country: raceData?.country ?? 'Unknown',
-                result,
-            };
-        })
-        .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry));
-
     const raceEntriesBySeason = Array.from(
-        raceEntries.reduce((map, entry) => {
+        filteredRaceEntries.reduce((map, entry) => {
             if (!map.has(entry.seasonNumber)) {
                 map.set(entry.seasonNumber, []);
             }
             map.get(entry.seasonNumber)!.push(entry);
             return map;
-        }, new Map<number, typeof raceEntries>())
+        }, new Map<number, DriverRaceEntry[]>())
     ).sort((a, b) => b[0] - a[0]);
 
-    const selectedSeasonMostRecentEntry = [...raceEntries].sort((a, b) => {
+    const selectedSeasonMostRecentEntry = [...filteredRaceEntries].sort((a, b) => {
         if (a.seasonNumber !== b.seasonNumber) return b.seasonNumber - a.seasonNumber;
         return b.roundNumber - a.roundNumber;
     })[0];
@@ -103,12 +147,15 @@ export function DriverDetailPage() {
         selectedYear === 'all'
             ? driver.age
             : Math.max(16, driver.age - Math.max(0, currentSeason - selectedYear));
-    const profileTeamId = selectedYear === 'all'
-        ? currentTeamId
-        : selectedSeasonMostRecentEntry?.result.teamId ?? null;
+
+    const profileTeamId =
+        selectedYear === 'all'
+            ? currentTeamId
+            : selectedSeasonMostRecentEntry?.result.teamId ?? null;
+
     const profileTeam = teams.find((item) => item.id === profileTeamId) ?? null;
 
-    const classifiedResults = raceEntries.map((entry) => entry.result);
+    const classifiedResults = filteredRaceEntries.map((entry) => entry.result);
 
     const totalPoints = classifiedResults.reduce((sum, result) => sum + result.points, 0);
     const wins = classifiedResults.filter((result) => !result.dnf && result.position === 1).length;
@@ -121,7 +168,7 @@ export function DriverDetailPage() {
         return summary.championDriverId === driver.id;
     }).length;
 
-    const seasonsParticipated = new Set(raceEntries.map((entry) => entry.seasonNumber)).size;
+    const seasonsParticipated = new Set(filteredRaceEntries.map((entry) => entry.seasonNumber)).size;
 
     const bestFinishResult = classifiedResults
         .filter((result) => !result.dnf)
@@ -136,55 +183,96 @@ export function DriverDetailPage() {
             ).toFixed(1)
             : '—';
 
-    const teamStats = Array.from(
-        raceEntries.reduce((map, entry) => {
-            const key = entry.result.teamId ?? 'unknown-team';
+    const careerStints = useMemo<CareerStint[]>(() => {
+        const seasonsInOrder = Array.from(
+            allDriverRaceEntries.reduce((map, entry) => {
+                if (!map.has(entry.seasonNumber)) {
+                    map.set(entry.seasonNumber, {
+                        seasonNumber: entry.seasonNumber,
+                        teamId: entry.result.teamId ?? null,
+                        teamName: entry.result.teamName ?? 'Free Agent',
+                        teamCountry: entry.result.teamCountry ?? null,
+                        entries: [] as DriverRaceEntry[],
+                    });
+                }
 
-            if (!map.has(key)) {
-                map.set(key, {
-                    teamId: entry.result.teamId,
-                    teamName: entry.result.teamName ?? 'Unknown Team',
-                    teamCountry: entry.result.teamCountry ?? '',
+                map.get(entry.seasonNumber)!.entries.push(entry);
+                return map;
+            }, new Map<number, {
+                seasonNumber: number;
+                teamId: string | null;
+                teamName: string;
+                teamCountry: string | null;
+                entries: DriverRaceEntry[];
+            }>())
+        )
+            .map(([, value]) => value)
+            .sort((a, b) => a.seasonNumber - b.seasonNumber);
+
+        const stints: CareerStint[] = [];
+
+        for (const season of seasonsInOrder) {
+            const lastStint = stints[stints.length - 1];
+            const sameTeamAsPrevious =
+                lastStint &&
+                lastStint.teamId === season.teamId &&
+                lastStint.endSeason + 1 === season.seasonNumber;
+
+            if (sameTeamAsPrevious) {
+                lastStint.endSeason = season.seasonNumber;
+                lastStint.seasons.push(season.seasonNumber);
+
+                for (const entry of season.entries) {
+                    lastStint.races += 1;
+                    lastStint.points += entry.result.points;
+
+                    if (entry.result.dnf) {
+                        lastStint.dnfs += 1;
+                    } else {
+                        if (entry.result.position === 1) lastStint.wins += 1;
+                        if (entry.result.position <= 3) lastStint.podiums += 1;
+                    }
+                }
+
+                if (championshipYears.includes(season.seasonNumber)) {
+                    lastStint.championships.push(season.seasonNumber);
+                }
+            } else {
+                const newStint: CareerStint = {
+                    startSeason: season.seasonNumber,
+                    endSeason: season.seasonNumber,
+                    teamId: season.teamId,
+                    teamName: season.teamName,
+                    teamCountry: season.teamCountry,
+                    seasons: [season.seasonNumber],
                     races: 0,
                     points: 0,
                     wins: 0,
                     podiums: 0,
                     dnfs: 0,
-                    seasons: new Set<number>(),
-                });
+                    championships: championshipYears.includes(season.seasonNumber)
+                        ? [season.seasonNumber]
+                        : [],
+                };
+
+                for (const entry of season.entries) {
+                    newStint.races += 1;
+                    newStint.points += entry.result.points;
+
+                    if (entry.result.dnf) {
+                        newStint.dnfs += 1;
+                    } else {
+                        if (entry.result.position === 1) newStint.wins += 1;
+                        if (entry.result.position <= 3) newStint.podiums += 1;
+                    }
+                }
+
+                stints.push(newStint);
             }
+        }
 
-            const stat = map.get(key)!;
-            stat.races += 1;
-            stat.points += entry.result.points;
-            stat.seasons.add(entry.seasonNumber);
-
-            if (entry.result.dnf) {
-                stat.dnfs += 1;
-            } else {
-                if (entry.result.position === 1) stat.wins += 1;
-                if (entry.result.position <= 3) stat.podiums += 1;
-            }
-
-            return map;
-        }, new Map<string, {
-            teamId: string | null;
-            teamName: string;
-            teamCountry: string;
-            races: number;
-            points: number;
-            wins: number;
-            podiums: number;
-            dnfs: number;
-            seasons: Set<number>;
-        }>())
-            .values()
-    )
-        .map((entry) => ({
-            ...entry,
-            seasonCount: entry.seasons.size,
-        }))
-        .sort((a, b) => b.points - a.points);
+        return [...stints].sort((a, b) => b.startSeason - a.startSeason);
+    }, [allDriverRaceEntries, championshipYears]);
 
     return (
         <div className="space-y-6 md:space-y-8">
@@ -282,9 +370,15 @@ export function DriverDetailPage() {
                         <div className="rounded-2xl bg-white/5 p-4">
                             <div className="text-sm text-zinc-400">Current Team</div>
                             <div className="mt-1 text-lg font-semibold text-white">
-                                {profileTeam
-                                    ? <TeamLink teamId={profileTeam.id} teamName={profileTeam.name} country={profileTeam.country} />
-                                    : 'Free Agent'}
+                                {profileTeam ? (
+                                    <TeamLink
+                                        teamId={profileTeam.id}
+                                        teamName={profileTeam.name}
+                                        country={profileTeam.country}
+                                    />
+                                ) : (
+                                    'Free Agent'
+                                )}
                             </div>
                             {profileTeam ? (
                                 <div className="text-sm text-zinc-400">{profileTeam.country}</div>
@@ -318,10 +412,26 @@ export function DriverDetailPage() {
                                     <span>{value}</span>
                                 </div>
                                 <div className="h-3 rounded-full bg-white/10">
-                                    <div className="h-3 rounded-full bg-red-500" style={{ width: `${value}%` }} />
+                                    <div
+                                        className="h-3 rounded-full bg-red-500"
+                                        style={{ width: `${value}%` }}
+                                    />
                                 </div>
                             </div>
                         ))}
+
+                        <div className="rounded-2xl bg-white/5 p-4">
+                            <div className="text-sm text-zinc-400">Championship Years</div>
+                            <div className="mt-2 flex flex-wrap gap-2">
+                                {championshipYears.length > 0 ? (
+                                    championshipYears.map((year) => (
+                                        <Pill key={year}>👑 {year}</Pill>
+                                    ))
+                                ) : (
+                                    <span className="text-sm text-zinc-400">No championships yet</span>
+                                )}
+                            </div>
+                        </div>
 
                         <div className="flex flex-wrap gap-2 pt-2">
                             <Pill>{championships} Titles</Pill>
@@ -333,96 +443,71 @@ export function DriverDetailPage() {
                 </Card>
             </div>
 
-            <Card title="Team History">
-                {teamStats.length === 0 ? (
-                    <div className="text-sm text-zinc-400">No team history available yet.</div>
+            <Card title="Career Timeline">
+                {careerStints.length === 0 ? (
+                    <div className="text-sm text-zinc-400">No career history available yet.</div>
                 ) : (
                     <div className="space-y-3">
-                        <div className="grid grid-cols-[1.3fr_70px_80px_80px_80px_80px] px-2 text-xs uppercase tracking-[0.25em] text-zinc-500">
-                            <span>Team</span>
-                            <span className="text-right">Seasons</span>
-                            <span className="text-right">Races</span>
-                            <span className="text-right">Pts</span>
-                            <span className="text-right">Wins</span>
-                            <span className="text-right">Pods</span>
-                        </div>
+                        {careerStints.map((stint) => {
+                            const yearLabel =
+                                stint.startSeason === stint.endSeason
+                                    ? `${stint.startSeason}`
+                                    : `${stint.startSeason}-${stint.endSeason}`;
 
-                        {teamStats.map((teamStat) => (
-                            <div
-                                key={`${teamStat.teamId ?? 'unknown'}-${teamStat.teamName}`}
-                                className="grid grid-cols-[1.3fr_70px_80px_80px_80px_80px] items-center rounded-2xl bg-white/5 px-4 py-3"
-                            >
-                                <div>
-                                    <div className="text-white">
-                                        <TeamLink
-                                            teamId={teamStat.teamId}
-                                            teamName={teamStat.teamName}
-                                            country={teamStat.teamCountry}
-                                        />
-                                    </div>
-                                    <div className="text-xs text-zinc-400">
-                                        {teamStat.teamCountry || 'Unknown country'}
-                                    </div>
-                                </div>
-                                <div className="text-right text-white">{teamStat.seasonCount}</div>
-                                <div className="text-right text-white">{teamStat.races}</div>
-                                <div className="text-right text-white">{teamStat.points}</div>
-                                <div className="text-right text-white">{teamStat.wins}</div>
-                                <div className="text-right text-white">{teamStat.podiums}</div>
-                            </div>
-                        ))}
-                    </div>
-                )}
-            </Card>
-            <Card title="Team Timeline">
-                {raceEntries.length === 0 ? (
-                    <div className="text-sm text-zinc-400">No team timeline available for this selection.</div>
-                ) : (
-                    <div className="space-y-2">
-                        {Array.from(
-                            raceEntries.reduce((map, entry) => {
-                                const key = `${entry.seasonNumber}-${entry.result.teamId ?? 'free-agent'}`;
-                                if (!map.has(key)) {
-                                    map.set(key, {
-                                        seasonNumber: entry.seasonNumber,
-                                        teamId: entry.result.teamId,
-                                        teamName: entry.result.teamName ?? 'Free Agent',
-                                        teamCountry: entry.result.teamCountry ?? null,
-                                    });
-                                }
-                                return map;
-                            }, new Map<string, {
-                                seasonNumber: number;
-                                teamId: string | null;
-                                teamName: string;
-                                teamCountry: string | null;
-                            }>())
-                        )
-                            .map(([, value]) => value)
-                            .sort((a, b) => b.seasonNumber - a.seasonNumber)
-                            .map((entry) => (
+                            return (
                                 <div
-                                    key={`${entry.seasonNumber}-${entry.teamId ?? 'free-agent'}`}
-                                    className="flex items-center justify-between rounded-2xl bg-white/5 px-4 py-3"
+                                    key={`${stint.startSeason}-${stint.endSeason}-${stint.teamId ?? 'free-agent'}`}
+                                    className="rounded-2xl bg-white/5 p-4"
                                 >
-                                    <span className="text-sm text-zinc-300">Season {entry.seasonNumber}</span>
-                                    <TeamLink teamId={entry.teamId} teamName={entry.teamName} country={entry.teamCountry} />
+                                    <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                                        <div>
+                                            <div className="text-sm text-zinc-400">{yearLabel}</div>
+                                            <div className="mt-1 text-lg font-semibold text-white">
+                                                <TeamLink
+                                                    teamId={stint.teamId}
+                                                    teamName={stint.teamName}
+                                                    country={stint.teamCountry}
+                                                />
+                                            </div>
+                                            <div className="text-sm text-zinc-400">
+                                                {stint.teamCountry || 'Unknown country'}
+                                            </div>
+                                        </div>
+
+                                        <div className="flex flex-wrap gap-2">
+                                            <Pill>{stint.races} Races</Pill>
+                                            <Pill>{stint.points} Points</Pill>
+                                            <Pill>{stint.wins} Wins</Pill>
+                                            <Pill>{stint.podiums} Podiums</Pill>
+                                            <Pill>{stint.dnfs} DNFs</Pill>
+                                            {stint.championships.length > 0 ? (
+                                                <Pill>
+                                                    👑 {stint.championships.join(', ')}
+                                                </Pill>
+                                            ) : null}
+                                        </div>
+                                    </div>
                                 </div>
-                            ))}
+                            );
+                        })}
                     </div>
                 )}
             </Card>
 
             <Card title="Race-by-Race Results">
-                {raceEntries.length === 0 ? (
+                {filteredRaceEntries.length === 0 ? (
                     <div className="text-sm text-zinc-400">No race data for this selection.</div>
                 ) : (
                     <div className="space-y-3">
                         {raceEntriesBySeason.map(([season, entries]) => {
-                            const isCollapsed = collapsedSeasons[season] ?? false;
+                            const isCollapsed = collapsedSeasons[season] ?? true;
+                            const isChampionSeason = championshipYears.includes(season);
 
                             return (
-                                <div key={`season-${season}`} className="rounded-2xl border border-white/10 bg-white/[0.03]">
+                                <div
+                                    key={`season-${season}`}
+                                    className="rounded-2xl border border-white/10 bg-white/[0.03]"
+                                >
                                     <button
                                         onClick={() =>
                                             setCollapsedSeasons((current) => ({
@@ -432,8 +517,11 @@ export function DriverDetailPage() {
                                         }
                                         className="flex w-full items-center justify-between px-4 py-3 text-left"
                                     >
-                                        <span className="text-sm font-semibold tracking-wide text-white">
-                                            Season {season}
+                                        <span className="flex items-center gap-2 text-sm font-semibold tracking-wide text-white">
+                                            <span>
+                                                Season {season}
+                                            </span>
+                                            {isChampionSeason ? <span title="Champion">👑</span> : null}
                                         </span>
                                         <span className="text-xs text-zinc-400">
                                             {isCollapsed ? 'Show races' : 'Hide races'}
@@ -446,7 +534,9 @@ export function DriverDetailPage() {
                                                 .sort((a, b) => b.roundNumber - a.roundNumber)
                                                 .map((entry, index) => {
                                                     const result = entry.result;
-                                                    const medal = !result.dnf ? getPodiumMedal(result.position) : null;
+                                                    const medal = !result.dnf
+                                                        ? getPodiumMedal(result.position)
+                                                        : null;
 
                                                     return (
                                                         <div
