@@ -730,26 +730,8 @@ export const useGameStore = create<GameState>((set, get) => {
             set((state) => {
                 if (!state.isSeasonComplete || state.offseasonReady) return state;
 
-                const latestSummary = state.seasonSummaries[state.seasonSummaries.length - 1];
-                const playerEngineer =
-                    state.engineers.find((item) => item.id === state.playerEngineerId) ?? null;
-                const playerChief =
-                    state.pitCrewChiefs.find((item) => item.id === state.playerPitCrewChiefId) ?? null;
-
-                const prizeMoney = getPrizeMoneyForPosition(latestSummary?.playerTeamPosition ?? null);
-                const staffCost = (playerEngineer?.salary ?? 0) + (playerChief?.salary ?? 0);
-                const netPrize = Math.max(0, prizeMoney - staffCost);
-
-                const updatedTeams = state.teams.map((team) =>
-                    team.id === state.playerTeamId
-                        ? { ...team, budget: clampTeamBudget(team.budget + netPrize) }
-                        : { ...team, budget: clampTeamBudget(team.budget) }
-                );
-
                 const nextState = {
                     ...state,
-                    teams: updatedTeams,
-                    pendingPrizeMoney: netPrize,
                     offseasonReady: true,
                 };
 
@@ -929,9 +911,33 @@ export const useGameStore = create<GameState>((set, get) => {
                     ];
                 }
 
+                let seasonPrizeMoney = state.pendingPrizeMoney;
+                let teamsAfterPrize = updatedTeams;
+
+                if (seasonComplete) {
+                    const latestSummary = nextSeasonSummaries[nextSeasonSummaries.length - 1];
+                    const playerEngineer =
+                        state.engineers.find((item) => item.id === state.playerEngineerId) ?? null;
+                    const playerChief =
+                        state.pitCrewChiefs.find((item) => item.id === state.playerPitCrewChiefId) ?? null;
+
+                    const prizeMoney = getPrizeMoneyForPosition(latestSummary?.playerTeamPosition ?? null);
+                    const staffCost = (playerEngineer?.salary ?? 0) + (playerChief?.salary ?? 0);
+                    const netPrize = Math.max(0, prizeMoney - staffCost);
+
+                    seasonPrizeMoney = netPrize;
+                    teamsAfterPrize = updatedTeams.map((team) =>
+                        team.id === state.playerTeamId
+                            ? { ...team, budget: clampTeamBudget(team.budget + netPrize) }
+                            : team
+                    );
+                }
+
                 const nextState: GameState = {
                     ...nextStateBase,
+                    teams: teamsAfterPrize,
                     seasonSummaries: nextSeasonSummaries,
+                    pendingPrizeMoney: seasonPrizeMoney,
 
                     createNewCareerFromSetup: state.createNewCareerFromSetup,
                     loadCareer: state.loadCareer,
