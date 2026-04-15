@@ -17,6 +17,7 @@ export default function App() {
   return (
     <AppShell>
       <Outlet />
+      <Analytics />
     </AppShell>
   );
 }
